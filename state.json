@@ -1,0 +1,37 @@
+{
+    "system_status": "active",
+    "last_heartbeat": null,
+    "session_pnl": 0.0,
+    "current_session": "waiting",
+    "active_sweeps": {},
+    "active_trades": [],
+    "watchlists": {
+        "ASIA": [
+            "USDJPY",
+            "AUDUSD",
+            "NZDUSD",
+            "XAUUSD"
+        ],
+        "LONDON": [
+            "GBPUSD",
+            "EURUSD",
+            "DAX",
+            "XAUUSD"
+        ],
+        "NY": [
+            "XAUUSD",
+            "US30",
+            "NAS100",
+            "USDJPY"
+        ],
+        "CRYPTO": [
+            "BTCUSDT",
+            "ETHUSDT",
+            "SOLUSDT",
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "XAUTUSDT"
+        ]
+    }
+}

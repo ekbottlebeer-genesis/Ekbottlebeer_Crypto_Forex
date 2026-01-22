@@ -1,0 +1,12 @@
+MetaTrader5
+pybit
+python-telegram-bot
+python-dotenv
+pandas
+numpy
+mplfinance
+schedule
+requests
+pytz
+lightweight-charts-python
+playwright
