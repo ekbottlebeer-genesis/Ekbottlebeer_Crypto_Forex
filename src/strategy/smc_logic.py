@@ -43,47 +43,48 @@ class SMCLogic:
         Analyzes 1H/4H data for sweeps of PDH/PDL or EQH/EQL (50-candle lookback).
         Sweep = Price moves beyond level but candle body closes inside within 1-2 bars.
         """
-        # Ensure we have enough data
         if len(htf_candles) < 55: return {'swept': False}
 
-        # Lookback Window (excluding current forming candle)
+        # Lookback Window
         lookback = 50
-        df = htf_candles.iloc[-(lookback+2):-1] # Recent history
+        df = htf_candles.iloc[-(lookback+2):-1] 
         
         current_candle = htf_candles.iloc[-1]
-        prev_candle = htf_candles.iloc[-2] # Potential sweep candle
+        prev_candle = htf_candles.iloc[-2]
         
-        # 1. Identify Levels (naive approach for 50 candle High/Low)
-        # Ideally we want swings, but let's use Max/Min of the window as "Major Liquidity"
+        # 1. Identify Liquidity Levels (EQH / EQL)
         period_high = df['high'].max()
         period_low = df['low'].min()
         
         # Check Buy Side Sweep (Short Bias)
-        # Condition: High > Period High AND Close < Period High
-        # We check previous candle or current candle
-        
-        # Check Previous Candle for confirmed sweep
         if prev_candle['high'] > period_high and prev_candle['close'] < period_high:
+             # Check for "Double Top" (EQH)
+             # Count candles near the high (> 99.98% of PerHigh)
+             touch_count = df[df['high'] > (period_high * 0.9998)].shape[0]
+             desc = "EQH Sweep (Double Top)" if touch_count >= 2 else "HTF High Sweep"
+             
              return {
                  'swept': True, 
                  'side': 'buy_side', # We swept highs, biased Short
                  'level': period_high, 
                  'sweep_candle_time': prev_candle['time'],
-                 'desc': 'HTF High Sweep (Short Bias)'
+                 'desc': desc
              }
              
         # Check Sell Side Sweep (Long Bias)
         if prev_candle['low'] < period_low and prev_candle['close'] > period_low:
+             # Check for "Double Bottom" (EQL)
+             touch_count = df[df['low'] < (period_low * 1.0002)].shape[0]
+             desc = "EQL Sweep (Double Bottom)" if touch_count >= 2 else "HTF Low Sweep"
+
              return {
                  'swept': True, 
                  'side': 'sell_side', # We swept lows, biased Long
                  'level': period_low, 
                  'sweep_candle_time': prev_candle['time'],
-                 'desc': 'HTF Low Sweep (Long Bias)'
+                 'desc': desc
              }
              
-        # TODO: Implement granular EQH/EQL logic if "Max/Min" is too broad.
-            
         return {'swept': False}
 
     def detect_mss(self, ltf_candles: pd.DataFrame, bias_direction, sweep_time):

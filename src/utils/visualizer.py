@@ -13,7 +13,7 @@ class Visualizer:
         if not os.path.exists(export_dir):
             os.makedirs(export_dir)
 
-    def generate_chart(self, df, symbol, zones=None, filename="chart.png"):
+    async def generate_chart(self, df, symbol, zones=None, filename="chart.png"):
         """
         Generates a lightweight-chart, saves it as HTML, and uses Playwright to screenshot it.
         
@@ -45,14 +45,12 @@ class Visualizer:
                 if 'fvg' in zones:
                     for fvg in zones['fvg']:
                         # fvg structure: {'top': float, 'bottom': float, 'start_time': str, 'end_time': str, 'type': 'bullish'/'bearish'}
-                        color = 'rgba(0, 255, 0, 0.2)' if fvg.get('type') == 'bullish' else 'rgba(255, 0, 0, 0.2)'
-                        # Note: lightweight-charts python lib might not have a direct 'box' primitive easily accessible 
-                        # without custom js, but we can use horizontal lines or specialized markers. 
-                        # For this version, we will try to calculate a box or just use lines.
-                        # Let's use create_line for top and bottom for now as a robust fallback.
-                        # Or checking if library supports shapes exists. It does support 'trend_line' or 'box' in newer versions.
-                        # We will use horizontal ray for simplicity if exact box isn't available in this wrapper version easily.
-                        pass # TODO: Implement visual boxes
+                        color = 'rgba(0, 255, 0, 0.4)' if fvg.get('type') == 'bullish' else 'rgba(255, 0, 0, 0.4)'
+                        
+                        # Use horizontal lines to define the zone (Top/Bottom)
+                        # Dashed line for 'box' effect
+                        chart.horizontal_line(fvg['top'], color=color, width=1, style='dashed', text='FVG Top')
+                        chart.horizontal_line(fvg['bottom'], color=color, width=1, style='dashed', text='FVG Bottom')
 
                 # Plot Sweeps (Horizontal Lines)
                 if 'sweeps' in zones:
