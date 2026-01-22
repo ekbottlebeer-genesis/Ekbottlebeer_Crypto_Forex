@@ -61,6 +61,14 @@ class MT5Bridge:
         df['time'] = pd.to_datetime(df['time'], unit='s')
         return df
 
+    def get_tick(self, symbol):
+        """Returns current bid/ask."""
+        if not self.connected: self.connect()
+        tick = mt5.symbol_info_tick(symbol)
+        if tick:
+            return {'bid': tick.bid, 'ask': tick.ask}
+        return None
+
     def place_limit_order(self, symbol, order_type, price, stop_loss, take_profit, volume, comment="Ekbottlebeer Bot"):
         """
         Places a generic Limit/Stop order on MT5.

@@ -103,11 +103,22 @@ def main():
                 # --- A. Manage Active Trades (Trailing, TP) ---
                 # Find active trades for this symbol
                 symbol_trades = [t for t in active_trades if t['symbol'] == symbol]
-                for trade in symbol_trades:
-                    # Get current price
-                    # tick = bridge.get_tick(symbol)
-                    # trade_mgr.manage_active_trade(trade, tick['bid'])
-                    pass
+                if symbol_trades:
+                    # Fetch data needed for management
+                    tick = bridge.get_tick(symbol)
+                    
+                    # optimized: Reuse LTF fetch if we are about to fetch it anyway?
+                    # For safety, fetch fresh 5m candles for trailing logic
+                    mt_tf = '5' if bridge == bybit_bridge else 5
+                    mgmt_candles = bridge.get_candles(symbol, timeframe=mt_tf, num_candles=10)
+                    
+                    if tick:
+                        current_price = tick['bid'] # default to bid for check
+                        for trade in symbol_trades:
+                            # Use Ask for Short closing? Simplify to mid or Bid for now.
+                            # Accurate: Long exits on Bid, Short exits on Ask.
+                            price_to_check = tick['bid'] if trade['direction'] == 'long' else tick['ask']
+                            trade_mgr.manage_active_trade(trade, price_to_check, ltf_candles=mgmt_candles)
 
                 # --- B. Hunt for Setups (SMC Logic) ---
                 
@@ -240,9 +251,18 @@ def main():
                         command = parts[0]
                         args = parts[1] if len(parts) > 1 else ""
                         
-                        response = bot.handle_command(command, args, context)
-                        if response:
-                            bot.send_message(response)
+                        # Detect SMC to overlay
+                        # We recycle the detection logic just for visualization
+                        sweeps = context['smc'].detect_htf_sweeps(df)
+                        # We can't easily find FVGs without full context scan (MSS etc).
+                        # For now, we only chart candles. 
+                        # To show "Fancy Boxes", we should ideally show the ones ACTIVE in state.
+                        
+                        # Future: pass active FVGs from context['state_manager'].
+                        fvgs = [] 
+                        
+                        # Generate
+                        chart_path = await context['visualizer'].generate_chart(df, symbol, timeframe, fvgs=fvgs)
 
             time.sleep(5) # Scan delay
             

@@ -208,6 +208,16 @@ class TelegramBot:
                     return "⚠️ Invalid amount."
             return f"🛑 **Max Session Loss**\nCurrent: ${context['risk_manager'].max_session_loss if context else '?'}"
             
+        elif cmd == '/newsmode':
+            # /newsmode on / off
+            if context and 'risk_manager' in context and args:
+                mode = args.lower().strip()
+                if mode in ['on', 'true', 'enable']:
+                    return context['risk_manager'].set_news_mode(True)
+                elif mode in ['off', 'false', 'disable']:
+                    return context['risk_manager'].set_news_mode(False)
+            return "❌ Usage: /newsmode [on/off]"
+
         elif cmd == '/news':
             return "📅 **News Calendar**\nNo high impact events detected within 30 mins."
             

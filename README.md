@@ -1,84 +1,113 @@
-# The Ekbottlebeer A+ Operator
-**Version:** 1.0 (Strategic Final)
-**System Constitution**
+# 🦅 The Ekbottlebeer A+ Operator
+**"The Eye, The Brain, The Hand, The Mouth"**
 
-This repository contains the "Brain" of the automated SMC trading system. It is designed to run on a dedicated Windows node with a "Self-Healing" watchdog.
+> **Current Status**: 🟢 LIVE / DEMO READY
+> **Version**: 1.0.0 (First Release)
 
----
+## 🏗 System Architecture
 
-## 1. Operational Manual (The Strategy)
+The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mouth" philosophy for robustness and clarity.
 
-### The Setup (A+ SMC)
-1.  **Anchor (Search)**: The bot scans 1H/4H charts for **Liquidity Sweeps** of PDH/PDL or EQH/EQL.
-2.  **Trigger (Confirm)**: Once a sweep is found, it drops to **5m** to look for a **Market Structure Shift (MSS)** with a body close.
-3.  **Entry (Execute)**: If MSS is confirmed, a Limit Order is placed at the **Fair Value Gap (FVG)**.
-4.  **Validation**:
-    *   **SL**: Prominent Swing (3-candle pivot) of the sweep.
-    *   **TP**: Opposite external liquidity (Min 2.0 RR).
+### 👁 The Eye (Monitoring)
+**Goal**: See the market with absolute clarity.
+- **Bridges**: 
+  - `src/bridges/mt5_bridge.py`: Connects to **MetaTrader 5** for Forex/Indices/Commodities active sessions (Asia/London/NY).
+  - `src/bridges/bybit_bridge.py`: Connects to **Bybit Unified Trading** for 24/7 Crypto perpetuals.
+- **Data**: Fetches **50-Candle** High Timeframe (1H) context and **200-Candle** Low Timeframe (5m) structure.
 
-### Strategic Sessions (UTC Independent)
-*   **Asia Core (00:00 - 08:00)**: JPY, AUD, NZD, XAU.
-*   **London Lead (07:00 - 15:00)**: GBP, EUR, DAX, XAU.
-*   **NY Power (13:00 - 20:00)**: USD, NASDAQ, XAU.
-*   **Crypto Background**: 24/7 Monitoring (BTC, ETH, SOL, etc.).
+### 🧠 The Brain (Logic)
+**Goal**: Process data and make high-probability decisions.
+- **Strategy** (`src/strategy/smc_logic.py`):
+  1.  **HTF Sweep Filter**: Detects liquidity sweeps on the 1H timeframe (50-bar lookback).
+  2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 1 hour).
+  3.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (for Longs) or **Premium** (for Shorts).
+- **Risk Guardrails** (`src/risk/guardrails.py`):
+  - **30/30 News Rule**: Avoids trading 30 mins before/after Red Folder events.
+  - **Session Lock**: Pauses trading if Max Session Loss is hit.
 
----
+### ✋ The Hand (Execution)
+**Goal**: Execute and manage trades with surgical precision.
+- **Position Sizing** (`src/risk/position_sizer.py`):
+  - Calculates exact Lot Sizes (Forex) or Contract Units (Crypto).
+  - **Auto-Normalization**: Handles `Volume Step` (e.g., 0.01 vs 1.0) and `Contract Size` (100k vs 1) automatically.
+  - Enforces **Minimum 2.0 Risk:Reward**.
+- **Trade Manager** (`src/strategy/trade_manager.py`):
+  - **Lifecycle**:
+    - **1.5R**: Move Stop Loss to Break-Even + 0.25R.
+    - **2.0R**: Close 30% of position (Partial Profit).
+    - **>2.0R**: **Trailing Stop** kicks in, trailing behind the High/Low of the last 3 closed candles.
 
-## 2. The Communication Map (Telegram Command Center)
-
-Your Telegram Chat is the "Cockpit".
-
-### Operational
-*   `/scan` - **Market Pulse**: View trend bias and watchlist status.
-*   `/status` - **Wallet**: View Equity/Margin.
-*   `/check` - **Diagnostics**: Test Broker connections.
-*   `/logs` - **Live View**: Last 10 lines of console output.
-*   `/chart [SYM]` - **Visual Audit**: Request annotated chart screenshot.
-
-### Trade Management
-*   `/positions` - **Live Trades**: View open PnL/SL/TP.
-*   `/history` - **Log**: Last 5 closed trades.
-*   `/close [SYM]` - **Force Exit**: Close trades for a symbol.
-*   `/panic` - **KILL SWITCH**: Closes ALL positions. **Requires `YES_Sure` confirmation.**
-
-### Strategy Control
-*   `/pause` - **Suspend**: Stop looking for new entries.
-*   `/resume` - **Resume**: Re-enable scanning.
-*   `/trail [ON/OFF]` - **Trailing**: Toggle dynamic trailing stop.
-
-### Risk & Setup
-*   `/risk [VAL]` - **Adjust Risk**: Set % risk per trade (e.g., `/risk 0.5`).
-*   `/maxloss [AMT]` - **Hard Stop**: Set Session Loss Limit.
-*   `/news` - **Calendar**: upcoming "Red Folder" events.
-
-### Testing
-*   `/test [SYM]` - **Force Entry**: Open trade immediately on current bias.
-*   `/canceltest` - **Close Test**.
-*   `/strategy` - **Cheat Sheet**: Display rules.
+### 🗣 The Mouth (Communication)
+**Goal**: Communicate status and signals clearly.
+- **Channels**:
+  - **Control Room**: Your main bot chat for logs and commands.
+  - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts (Entry, SL, TP, RR).
+- **Commands**:
+  - `/status`: Check System Heartbeat.
+  - `/chart [SYMBOL]`: Request a visual analysis chart.
+  - `/panic`: **KILL SWITCH**. Closes all positions immediately.
+  - `/maxloss [AMOUNT]`: Set a session loss limit on the fly.
 
 ---
 
-## 3. The Recovery Plan (Self-Healing)
+## 🚀 Getting Started
 
-### Scenario A: Bot Crashes / Script Errors
-*   **Action**: Do nothing.
-*   **Result**: The `watchdog.bat` script will detect the process exit, wait 5 seconds, and auto-restart.
+### 1. Prerequisites
+- **Python 3.10+** (Recommended)
+- **MetaTrader 5 Terminal** (Installed and Logged In)
+- **Bybit Account** (API Key with Unified Trading)
 
-### Scenario B: Adding New Features / Fixing Bugs
-1.  **Develop**: Make changes on your Mac (Building Node).
-2.  **Push**: Run `./gpush.sh "Commit Message"` in terminal.
-3.  **Deploy**: The Windows Watchdog will automatically `git pull` the changes on its next cycle or restart.
+### 2. Installation
+```bash
+# Clone the repository
+git clone https://github.com/ekbottlebeer-genesis/Ekbottlebeer_Crypto_Forex.git
+cd Ekbottlebeer_Crypto_Forex
 
-### Scenario C: "Panic" Button Used
-1.  **Action**: You sent `/panic` then `YES_Sure`.
-2.  **Result**: All trades closed. Bot logic suspended.
-3.  **Recovery**: To restart trading, send `/resume`.
+# Create Virtual Environment
+python -m venv venv
+source venv/bin/activate  # Mac/Linux
+# venv\Scripts\activate   # Windows
+
+# Install Dependencies
+pip install -r requirements.txt
+```
+
+### 3. Configuration (.env)
+Create a `.env` file (see `.env.example` if available, or use the template below):
+```ini
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
+TELEGRAM_SIGNAL_CHANNEL_ID=your_signal_channel_id
+
+MT5_LOGIN=123456
+MT5_PASSWORD=pass
+MT5_SERVER=Pepperstone-Demo
+
+BYBIT_API_KEY=key
+BYBIT_API_SECRET=secret
+BYBIT_TESTNET=True
+```
+
+### 4. Running the Bot
+```bash
+python main.py
+```
+*The bot will initialize, connect to bridges, and start the "Eye" scan loop.*
 
 ---
 
-## 4. Installation & Setup
+## 🛠 Operational Guide
 
-1.  **Clone Repository**: `git clone <repo_url>`
-2.  **Create Venv**: `python -m venv .env`
-3.  **Configure `.env`**: Fill in Telegram Token, Chat ID, and Broker Keys.
-4.  **Launch**: Double-click `watchdog.bat`.
+### Going Live (Real Money)
+See [GO_LIVE_README.md](./GO_LIVE_README.md) for the specific protocol.
+
+### Troubleshooting
+- **Logs**: Check the console output or `bot.log` (if enabled in future).
+- **No Trades?**:
+  - Check **Time**: Are you in a lively session (London/NY)?
+  - Check **News**: Is a Red Folder event active?
+  - Check **RR**: Many setups are skipped if the Risk:Reward is < 2.0.
+
+---
+
+> "We are building a robust trading system that actually generates money with a proper visibility of the market."

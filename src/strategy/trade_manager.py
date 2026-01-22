@@ -66,13 +66,32 @@ class TradeManager:
             self.state_manager.save_state()
             
         # 3. Trailing SL (Post 2.0R)
-        if current_r >= 2.0:
-            # Trail behind recent 5m Prominent Swing
-            # We need LTF candles to find recent swings
-            if ltf_candles is not None:
-                # Logic: Find most recent Swing Low (for Long) that is higher than current SL
-                # This requires finding swings on the provided candles
-                # For now, we stub this advanced logic or assume 'smc' helper is passed
-                pass 
-                
+        if current_r >= 2.0 and ltf_candles is not None and not ltf_candles.empty:
+            # Trailing Logic: Trail behind the extreme of the last 3 closed candles
+            # This is a robust way to trail market structure without complex swing detection
+            
+            last_3 = ltf_candles.iloc[-4:-1] # Exclude current forming candle
+            
+            new_trail_sl = None
+            
+            if direction == 'long':
+                # Long: Trail below the lowest low of recent price action
+                recent_low = last_3['low'].min()
+                # Ensure we only move SL UP
+                if recent_low > sl_price:
+                    new_trail_sl = recent_low
+            else:
+                # Short: Trail above the highest high
+                recent_high = last_3['high'].max()
+                # Ensure we only move SL DOWN
+                if recent_high < sl_price:
+                    new_trail_sl = recent_high
+            
+            if new_trail_sl:
+                 # Buffer? Maybe small buffer or exact extreme.
+                 logger.info(f"Trailing SL Updated for {symbol}. Old: {sl_price} -> New: {new_trail_sl}")
+                 if self.bridge.modify_order(trade['ticket'], sl=new_trail_sl):
+                     trade['sl_price'] = new_trail_sl
+                     self.state_manager.save_state()
+
         return trade

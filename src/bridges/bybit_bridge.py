@@ -72,6 +72,18 @@ class BybitBridge:
         except Exception as e:
             logger.error(f"Error fetching Bybit candles: {e}")
             return None
+    def get_tick(self, symbol):
+        """Returns current bid/ask."""
+        if not self.session: return None
+        try:
+             resp = self.session.get_tickers(category="linear", symbol=symbol)
+             if resp['retCode'] == 0:
+                 res = resp['result']['list'][0]
+                 return {'bid': float(res['bid1Price']), 'ask': float(res['ask1Price'])}
+        except:
+             return None
+        return None
+
     def place_order(self, symbol, side, order_type, qty, price=None, stop_loss=None, take_profit=None):
         """
         Places an order on Bybit (Unified Trading).
@@ -139,16 +151,60 @@ class BybitBridge:
             return False
 
     def close_position(self, symbol, qty=None):
-        """Closes (market) position."""
+        """
+        Closes (market) position.
+        """
         if not self.session: return False
-        # To close, we place an opposite order or use specific close endpoint if available?
-        # Standard: Place Market Reduce-Only Order.
-        # Or place command "close all"
         
-        # Simple implementation: Need current position side to know which way to close.
-        # For this stub, we won't auto-detect side. Assuming Caller knows.
-        # Ideally, we fetch position first.
-        return False # TODO: Implement fetch position -> place reduce-only order
+        try:
+            # 1. Determine Position Side/Size if not provided
+            # We need to know current side to Sell(Close Long) or Buy(Close Short)
+            # Fetch position
+            pos_resp = self.session.get_positions(category="linear", symbol=symbol)
+            if pos_resp['retCode'] != 0:
+                logger.error(f"Failed to fetch position for {symbol}")
+                return False
+                
+            positions = pos_resp['result']['list']
+            target_pos = None
+            for p in positions:
+                if float(p['size']) > 0:
+                    target_pos = p
+                    break
+            
+            if not target_pos:
+                logger.warning(f"No position found to close for {symbol}")
+                return False
+                
+            side = target_pos['side'] # 'Buy' or 'Sell'
+            size = float(target_pos['size'])
+            
+            # Determine Close Side
+            close_side = 'Sell' if side == 'Buy' else 'Buy'
+            
+            # Use provided qty or full close
+            close_qty = str(qty) if qty else str(size)
+            
+            # 2. Place Reduce-Only Market Order
+            resp = self.session.place_order(
+                category="linear",
+                symbol=symbol,
+                side=close_side,
+                orderType="Market",
+                qty=close_qty,
+                reduceOnly=True
+            )
+            
+            if resp['retCode'] == 0:
+                 logger.info(f"Bybit Position Closed: {symbol} {close_side} {close_qty}")
+                 return True
+            else:
+                 logger.error(f"Bybit Close Failed: {resp['retMsg']}")
+                 return False
+                 
+        except Exception as e:
+            logger.error(f"Bybit Close Error: {e}")
+            return False
 
     def get_balance(self):
         if not self.session: return 0.0

@@ -12,22 +12,6 @@ class Backtester:
         self.visualizer = Visualizer(export_dir="backtest_results")
         self.results = []
 
-    def run_backtest(self, df, symbol):
-        """
-        Replays the dataframe candle/candle through the SMC Logic.
-        """
-        logger.info(f"Starting Backtest for {symbol} on {len(df)} candles...")
-        
-        # Simulate a stream
-        # This is a naive loop. Optimizations would vectorise where possible, 
-        # but SMC logic is often stateful.
-        
-        for i in range(50, len(df)):
-            window = df.iloc[:i+1] # Current "live" view
-            
-            # 1. Detect setups
-            # This would be where we call smc.detect_htf_sweeps, etc.
-            # For efficiency, we might calculate swings on the whole DF first, 
             # but that involves "future knowledge" if not careful.
             
             # Placeholder for logic integration
