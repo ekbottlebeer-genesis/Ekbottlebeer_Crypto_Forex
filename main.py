@@ -126,6 +126,27 @@ def main():
                 if not risk.check_news(symbol):
                     continue
                     
+                # 1.5. Spread Protection (Crucial for Scalping)
+                # Fetch live tick first
+                tick_scan = bridge.get_tick(symbol)
+                if not tick_scan: continue
+                
+                spread = tick_scan['ask'] - tick_scan['bid']
+                # Define max spread (e.g. 2.0 pips for FX, or ratio for Crypto)
+                # For MVP: Hardcoded safety or config?
+                # FX: 0.00020 (2 pips in 5-digit broker is 20 points).
+                # Crypto: $0.50 on BTC?
+                # Let's trust risk.check_spread defaults or pass reasonable threshold.
+                
+                # Using a generic buffer. Ideally configurable per asset class.
+                # FX Pips vs Crypto Price.
+                # Simplified: If spread > 0.0003 (3 pips) for Forex pairs.
+                # Guardrails should handle the logic, we pass value.
+                
+                if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
+                     # logger.debug(f"Skipping {symbol} due to spread {spread:.5f}")
+                     continue
+                    
                 # 2. Fetch Data (HTF - 1H)
                 # MT5: 1H=16385, Bybit: '60'
                 htf_tf = '60' if bridge == bybit_bridge else 16385
@@ -218,7 +239,29 @@ def main():
                                         )
                                         bot.send_message(exec_msg)
                                     else:
-                                         bot.send_message(f"⚠️ **EXECUTION ERROR**: {symbol} found but Broker rejected order.")
+                                        # RETRY LOGIC: Half Risk Rescue
+                                        logger.warning(f"⚠️ Order failed for {symbol}. Retrying with HALF RISK...")
+                                        
+                                        half_units = units * 0.5
+                                        # Ensure min volume check logic applies? 
+                                        # Or just rely on bridges to reject again if too small.
+                                        
+                                        half_ticket = None
+                                        if bridge == bybit_bridge:
+                                            half_ticket = bridge.place_order(symbol, side, 'Limit', half_units, price=entry_price, stop_loss=sl_price, take_profit=tp_price)
+                                        else:
+                                            half_ticket = bridge.place_limit_order(symbol, o_type, entry_price, sl_price, tp_price, half_units)
+                                            
+                                        if half_ticket:
+                                            rescue_msg = (
+                                                f"⚠️ **MARGIN RESCUE EXECUTED** ⚠️\n"
+                                                f"{symbol} Limit Placed at **HALF RISK**.\n"
+                                                f"📦 **Qty**: `{half_units:.4f}` (Reduced)\n"
+                                                f"🎫 **Ticket**: `{half_ticket}`"
+                                            )
+                                            bot.send_message(rescue_msg)
+                                        else:
+                                            bot.send_message(f"❌ **EXECUTION FAILED**: {symbol} rejected even at Half Risk.")
                                 else:
                                     bot.send_message(f"⚠️ **MARGIN LOW**: {symbol} found but 0 units calculated. (Balance: {balance:.2f})")
                             else:
@@ -268,8 +311,14 @@ def main():
             
     except KeyboardInterrupt:
         logger.info("Shutdown signal received.")
-        bot.send_message("🛑 System Shutdown Initiated")
+        bot.send_message("🛑 System Shutdown Initiated via Keyboard")
         mt5_bridge.shutdown()
+        
+    except Exception as e:
+        logger.critical(f"CRITICAL CRASH: {e}", exc_info=True)
+        bot.send_message(f"🚨 **SYSTEM CRASHED** 🚨\nError: `{str(e)}`\nCheck logs immediately.")
+        mt5_bridge.shutdown()
+        raise e # Re-raise to let watchdog restart if needed
 
 if __name__ == "__main__":
     main()
