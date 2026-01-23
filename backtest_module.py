@@ -18,13 +18,36 @@ class Loader:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Data file not found: {filepath}")
         
-        # Assumes headers: time, open, high, low, close, volume (lowercase)
-        df = pd.read_csv(filepath)
-        df.columns = [c.lower() for c in df.columns]
+        # Determine separator (MT5 often uses tab)
+        # Try reading a few lines to sniff
+        try:
+             df = pd.read_csv(filepath, sep='\t')
+             if '<DATE>' not in df.columns:
+                 # Fallback to comma if standard keys not found
+                 df = pd.read_csv(filepath)
+        except:
+             df = pd.read_csv(filepath)
+
+        df.columns = [c.replace('<','').replace('>','').lower() for c in df.columns]
         
-        # Parse time
-        df['time'] = pd.to_datetime(df['time'])
-        df.set_index('time', inplace=True)
+        # MT5: date + time columns
+        if 'date' in df.columns and 'time' in df.columns:
+            # Combine
+            df['timestamp'] = pd.to_datetime(df['date'] + ' ' + df['time'])
+            df.set_index('timestamp', inplace=True)
+            df.drop(columns=['date', 'time'], inplace=True)
+        elif 'time' in df.columns:
+             # Basic Format
+             df['time'] = pd.to_datetime(df['time'])
+             df.set_index('time', inplace=True)
+             
+        # Rename tickvol -> volume if needed
+        if 'tickvol' in df.columns:
+            df.rename(columns={'tickvol': 'volume'}, inplace=True)
+        elif 'vol' in df.columns:
+            df.rename(columns={'vol': 'volume'}, inplace=True)
+            
+        df.index.name = 'time'
         return df.sort_index()
 
     @staticmethod
@@ -367,8 +390,8 @@ class BacktestEngine:
 if __name__ == "__main__":
     # Example Usage
     # Need a data file "data.csv"
-    if os.path.exists("data.csv"):
-        engine = BacktestEngine("data.csv", "EURUSD")
+    if os.path.exists("XAUUSD.a_M1.csv"):
+        engine = BacktestEngine("XAUUSD.a_M1.csv", "XAUUSD")
         engine.run()
     else:
-        print("Please provide 'data.csv' (Time, Open, High, Low, Close, Volume) to run.")
+        print("Please provide 'XAUUSD.a_M1.csv' (Time, Open, High, Low, Close, Volume) to run.")
