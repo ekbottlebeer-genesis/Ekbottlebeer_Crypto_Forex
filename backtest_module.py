@@ -69,25 +69,37 @@ class Loader:
 
 class SimulatedBroker:
     """Tracks Balance, Positions, and Equity Curve"""
-    def __init__(self, initial_balance=10000, leverage=100, slippage_pips=0.5, comm_pct=0.06):
+    def __init__(self, initial_balance=10000, leverage=100, slippage_pips=0.5, comm_pct=None, fixed_comm=7.0):
         self.balance = initial_balance
         self.leverage = leverage
-        self.slippage = slippage_pips * 0.0001 # Assuming Forex scale roughly, varies by asset
-        self.commission = comm_pct / 100 # % per side
-        self.positions = [] # List of dicts
+        self.slippage = slippage_pips * 0.0001
+        self.commission_pct = comm_pct 
+        self.fixed_comm = fixed_comm # Per standard lot (100 units) round turn
+        self.positions = [] 
         self.trade_history = []
         self.equity_curve = []
 
     def get_price_with_slippage(self, price, direction):
-        # Buy = Ask (Price + Slip), Sell = Bid (Price - Slip)
         if direction == 'buy':
             return price + self.slippage
         return price - self.slippage
 
     def place_order(self, symbol, side, qty, entry_price, sl, tp, time):
-        # Calculate commission
-        notional = qty * entry_price
-        comm_cost = notional * self.commission
+        # Calc comm:
+        # If fixed_comm is set, calc based on lots (units/100)
+        # Assuming Gold Contract Size = 100 ? Or 1?
+        # Standard XAU lot = 100 oz.
+        # If logic uses 1 unit = 1 oz.
+        
+        comm_cost = 0
+        if self.fixed_comm is not None:
+             # Round turn charged on entry for simplicity? Or half/half?
+             # Let's charge full round turn on entry to be conservative.
+             lots = qty / 100.0 # Assuming 1 lot = 100 units
+             comm_cost = lots * self.fixed_comm
+        elif self.commission_pct is not None:
+             notional = qty * entry_price
+             comm_cost = notional * (self.commission_pct / 100)
         
         real_entry = self.get_price_with_slippage(entry_price, side)
         
@@ -145,8 +157,14 @@ class SimulatedBroker:
 
     def close_trade(self, trade, exit_price, time, reason):
         # Commission on exit
-        notional = trade['qty'] * exit_price
-        comm_cost = notional * self.commission
+        comm_cost = 0
+        if self.fixed_comm is not None:
+             # Already charged full round turn on entry? Check place_order.
+             # "Let's charge full round turn on entry". So exit comm is 0.
+             comm_cost = 0 
+        elif self.commission_pct is not None:
+             notional = trade['qty'] * exit_price
+             comm_cost = notional * (self.commission_pct / 100)
         
         if trade['direction'] == 'buy':
             gross_pnl = (exit_price - trade['entry_price']) * trade['qty']
@@ -214,6 +232,9 @@ class BacktestEngine:
         logger.info("Pre-sampling HTF(1H) and LTF(5min) for lookup...")
         self.df_h1 = Loader.resample_data(self.df_m1, '1H').set_index('time')
         self.df_m5 = Loader.resample_data(self.df_m1, '5min').set_index('time')
+        
+        # Calculate RSI on M5
+        self.df_m5['rsi'] = self.strategy.calculate_rsi(self.df_m5['close'], 14)
         
         # Re-indexing M1 to be iterable list of dictionaries for speed? 
         # Or simple iterrows (slow but reliable).
@@ -291,7 +312,26 @@ class BacktestEngine:
                         best_fvg = fvgs[0] # Take first valid
                         
                         # --- EXECUTE TRADE ---
-                        self.execute_trade(direction, best_fvg, current_price_dict, sweep_state, mss_result)
+                        # RSI Confluence Check
+                        current_rsi = ltf_slice.iloc[-1]['rsi']
+                        
+                        rsi_ok = False
+                        if direction == 'bullish':
+                            # Oversold or Trend Rising? 
+                            # Pure Mean Reversion: Buy if RSI < 70 (Not overbought)
+                            # Or Momentum: Buy if RSI > 50?
+                            # User asked for "Confluence".
+                            # Let's say: Buy if RSI > 40 (Not dead) AND RSI < 70 (Room to grow)
+                            if 40 <= current_rsi <= 70: rsi_ok = True
+                            
+                        else: # Bearish
+                            # Sell if RSI < 60 (Not super bullish) AND RSI > 30 (Room to fall)
+                            if 30 <= current_rsi <= 60: rsi_ok = True
+                            
+                        if rsi_ok:
+                             self.execute_trade(direction, best_fvg, current_price_dict, sweep_state, mss_result, current_rsi)
+                        # else:
+                        #     print(f"Skipped {direction} due to RSI {current_rsi:.2f}")
                         
                         # Reset Sweep (One trade per sweep)
                         sweep_state = {'swept': False}
@@ -299,7 +339,7 @@ class BacktestEngine:
         print("Done!")
         self.generate_report()
 
-    def execute_trade(self, direction, fvg, current_bar, sweep, mss):
+    def execute_trade(self, direction, fvg, current_bar, sweep, mss, rsi=None):
         # Calc SL/TP
         if direction == 'bullish': # Long
             sl = sweep['level'] - 0.0005 # Buffer
@@ -323,7 +363,8 @@ class BacktestEngine:
         # Place Order
         trade = self.broker.place_order(self.symbol, side, qty, entry, sl, tp, current_bar['time'])
         
-        msg = f"🆕 TRADE: {side.upper()} @ {entry:.5f} | SL: {sl:.5f} | TP: {tp:.5f}"
+        rsi_str = f" | RSI: {rsi:.1f}" if rsi else ""
+        msg = f"🆕 TRADE: {side.upper()} @ {entry:.5f} | SL: {sl:.5f} | TP: {tp:.5f}{rsi_str}"
         self.reporter.send_message(msg)
         self.trades_taken += 1
         

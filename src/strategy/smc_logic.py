@@ -9,6 +9,13 @@ class SMCLogic:
     def __init__(self):
         self.swing_lookback = 3 
 
+    def calculate_rsi(self, series, period=14):
+        delta = series.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+
     def find_swings(self, df: pd.DataFrame):
         """
         Identifies swing highs and lows based on the 3-candle pivot rule.
