@@ -20,8 +20,9 @@ if exist .venv\Scripts\activate.bat (
     echo [%TIME%] [WATCHDOG] WARNING: .venv not found! Using global python.
 )
 
-:: 4. Install Dependencies
-pip install -r requirements.txt >nul 2>&1
+:: 4. Install Dependencies (Ensure environment is synced)
+echo [%TIME%] [WATCHDOG] Checking/Installing requirements...
+python -m pip install -r requirements.txt
 
 :: 5. Launch The Brain
 echo [%TIME%] [WATCHDOG] Launching Bot...
