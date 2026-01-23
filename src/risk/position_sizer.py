@@ -14,7 +14,12 @@ class PositionSizer:
         Formula: (Risk Amount / Risk Distance) / Contract Size
         Then rounded to Volume Step.
         """
-        if account_balance <= 0 or not instrument_info: return 0.0
+        if account_balance <= 0:
+            logger.warning(f"Position Sizer: Zero or negative balance ({account_balance}) for {symbol}")
+            return 0.0
+        if not instrument_info:
+            logger.warning(f"Position Sizer: Missing instrument info for {symbol}. Cannot calculate size.")
+            return 0.0
         
         risk_amount = account_balance * (self.default_risk_pct / 100.0)
         risk_distance = abs(entry_price - sl_price)
@@ -40,8 +45,21 @@ class PositionSizer:
             
         # Clamp
         if lots < min_vol:
-             logger.warning(f"Calculated size {lots} < Min {min_vol} for {symbol}. Skipping.")
-             return 0.0
+             # AUTO-SCALE: If calculated risk is small but below min_lot, force min_lot
+             # Provided it doesn't exceed a HARD RISK CEILING (e.g. 3%)
+             # This solves the "$500 account can't trade Gold" issue.
+             
+             # Calculate Risk of Min Vol
+             min_vol_risk_money = (min_vol * contract_size) * risk_distance
+             risk_pct_actual = (min_vol_risk_money / account_balance) * 100
+             
+             if risk_pct_actual <= 3.0:
+                 logger.info(f"Size Adjustment: Calculated {lots} < Min {min_vol}. Upgrading to {min_vol} (Risk: {risk_pct_actual:.2f}%)")
+                 lots = min_vol
+             else:
+                 logger.warning(f"Calculated size {lots} < Min {min_vol}. Upgrade rejected (Risk {risk_pct_actual:.2f}% > 3%). Skipping.")
+                 return 0.0
+
         if lots > max_vol: lots = max_vol
         
         # Final precision fix (avoid 0.1000000001)

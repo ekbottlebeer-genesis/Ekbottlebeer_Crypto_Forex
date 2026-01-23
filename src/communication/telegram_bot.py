@@ -464,7 +464,7 @@ class TelegramBot:
             logger.error(f"Failed to send Telegram photo: {e}")
 
     def get_updates(self, offset=None, timeout=10):
-        """Check for new messages (commands)."""
+        """Check for new messages (commands). Uses Long Polling."""
         if not self.token:
             return []
 
@@ -474,17 +474,30 @@ class TelegramBot:
             if offset:
                 params["offset"] = offset
             
-            response = requests.get(url, params=params)
+            # CRITICAL FIX: explicit client-side timeout must be > server-side timeout
+            # e.g., if we tell Telegram to wait 10s, we wait 13s mostly.
+            # If timeout is small (0.5s for rapid checks), we can be tighter.
+            client_timeout = timeout + 3.0 if timeout > 5 else 5.0
+            
+            response = requests.get(url, params=params, timeout=client_timeout)
             response.raise_for_status()
             return response.json().get("result", [])
+        
+        except requests.exceptions.ReadTimeout:
+            # This is normal if long polling expires without data, but usually API returns empty list properly.
+            # However, if network flakes, this triggers. Safe to ignore.
+            return []
+            
+        except requests.exceptions.ConnectionError:
+            logger.warning("Telegram Connection Error (Transient). Retrying next cycle...")
+            return []
+
         except Exception as e:
-            # Silence timeout read errors if timeout is small? 
-            # Requests raises ReadTimeout if server doesn't respond? 
-            # Actually Telegram Long Polling just returns empty list usually.
             if "409" in str(e):
                 logger.critical("⚠️ TELEGRAM CONFLICT (409): Another instance is running! Please kill old processes.")
             else:
-                logger.error(f"Failed to get Telegram updates: {e}")
+                # Reduce log level for generic fetch errors to avoid spamming user
+                logger.debug(f"Failed to get Telegram updates: {e}")
             return []
 
 

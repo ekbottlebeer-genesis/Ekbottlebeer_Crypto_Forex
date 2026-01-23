@@ -12,9 +12,9 @@ class SessionManager:
         # London: 07:00 - 15:00
         # NY: 13:00 - 20:00
         self.sessions = {
-            "ASIA": {"start": 0, "end": 8, "symbols": ["USDJPY.a", "AUDUSD.a", "NZDUSD.a", "XAUUSD.a"]},
-            "LONDON": {"start": 7, "end": 15, "symbols": ["GBPUSD.a", "EURUSD.a", "XAUUSD.a"]},
-            "NY": {"start": 13, "end": 20, "symbols": ["XAUUSD.a", "US30.a", "NAS100.a", "USDJPY.a"]}
+            "ASIA": {"start": 0, "end": 8, "symbols": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD"]},
+            "LONDON": {"start": 7, "end": 15, "symbols": ["GBPUSD", "EURUSD", "XAUUSD"]},
+            "NY": {"start": 13, "end": 20, "symbols": ["XAUUSD", "US30", "NAS100", "USDJPY"]}
         }
         
         # Crypto is 24/7

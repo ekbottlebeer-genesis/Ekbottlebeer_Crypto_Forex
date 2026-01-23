@@ -2,64 +2,69 @@
 **"The Eye, The Brain, The Hand, The Mouth"**
 
 > **Current Status**: 🟢 LIVE / DEMO READY
-> **Version**: 1.2.0 (High Precision Release)
+> **Version**: 1.3.0 (Robustness Update)
 
 ## 🏗 System Architecture
 
-The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mouth" philosophy for robustness and clarity.
+The bot is designed as a **Money Printing Machine**, utilizing a modular "organism" architecture for absolute robustness, fault tolerance, and execution speed.
 
 ### 👁 The Eye (Monitoring)
 **Goal**: See the market with absolute clarity.
-- **Bridges**: 
-  - `src/bridges/mt5_bridge.py`: Connects to **MT5** for Forex/Gold. Supports self-healing symbol selection and suffix handling (e.g., `.a`).
-  - `src/bridges/bybit_bridge.py`: Connects to **Bybit Unified Trading**. Supports both LIVE and DEMO Trading environments.
-- **Data**: Fetches **50-Candle** HTF (1H) context and **200-Candle** LTF (5m) structure.
+- **Unified Bridge System**: 
+  - **MT5 Bridge**: Connects to Forex/Gold/Indices. Features **Aggressive Symbol Discovery** (auto-detects `XAUUSD` vs `GOLD` vs `XAUUSD.a`) and **Stops Level Enforcement** to prevent Error 10013.
+  - **Bybit Bridge**: Connects to Crypto Perps. Features **Split-Tunneling** for true "Demo Trading" (`api-demo.bybit.com`) vs Live/Testnet.
+- **Context Awareness**: Fetches **50-Candle** HTF (1H) context for sweeps and **200-Candle** LTF (5m) structure for entries.
 
 ### 🧠 The Brain (Logic)
 **Goal**: Process data and make high-probability decisions.
-- **Refined Strategy** (`smc_logic.py`):
+- **Refined SMC Strategy** (`smc_logic.py`):
   1.  **Strict HTF Sweep Filter**:
       - **Body Close Rule**: Candle body MUST close back inside the level.
-      - **Wick Proportion Filter**: Wick beyond the level must be >= 30% of total candle length.
+      - **Wick Proportion Filter**: Wick must be >= 30% of total length.
       - **3-Candle Reclaim**: Price must trade back inside within 3 candles.
-      - **Extreme Protection**: setup is immediately KILLED if price breaks the High/Low of the sweep candle before MSS.
   2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 4 hours).
   3.  **RSI Confluence**:
       - **Longs**: RSI > 40 (Momentum) and < 70 (No Overbought).
       - **Shorts**: RSI < 60 (Momentum) and > 30 (No Oversold).
-  4.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (Longs) or **Premium** (Shorts).
-  5.  **Spread Protection**: Automatically skips if spread > 5.0 (Protection against volatility).
+  4.  **Femto-Second Decisioning**: Checks FVG entries and Risk:Reward ratios in milliseconds.
 
 ### ✋ The Hand (Execution)
 **Goal**: Execute and manage trades with surgical precision.
-- **Dynamic Risk** (`position_sizer.py`): Calculates exact lots/units based on % risk. **Instant Half-Risk retry** on margin rejection.
-- **Trade Manager** (`trade_manager.py`):
-    - **1.5R**: Move to Break-Even + 0.25R.
-    - **2.0R**: Partial Profit (30% close).
-    - **Trailing Stop**: Enhanced trailing based on 5m market structure.
+- **Dynamic Risk Engine**: 
+  - **Position Sizer**: Calculates exact lots/contracts based on your `% Risk` setting.
+  - **Margin Rescue**: If an order is rejected for "Not Enough Money", the bot automatically retries specifically with **Half Risk** to capture the move.
+  - **Smart Normalization**: Auto-rounds prices and volumes to broker-specific `tick_size` and `volume_step`, preventing 99% of "Invalid Request" errors.
+- **Trade Manager**:
+    - **1.5R**: Auto-Move SL to Break-Even + Buffer.
+    - **2.0R**: Take Partial Profit (30%).
+    - **Trailing Stop**: Enhanced trailing based on valid 5m Market Structure.
 
 ### 🗣 The Mouth (Communication)
 **Goal**: Near-instant feedback and rich visual reporting.
-- **High-Frequency Polling**: Telegram replies are now decoupled from the scan loop for **< 1s response time**.
-- **Melbourne Localization**: All news events are localized to **Australia/Melbourne** time.
+- **High-Frequency Polling**: Telegram responses are decoupled for **< 1s** latency.
+- **Proactive Alerting**: The bot screams (User Alert) if any critical bridge error occurs (e.g., disconnection, symbol change).
+- **Auto-Evidence**: Generates a professional Chart Snippet for every trade taken, marking Entry, SL, and TP.
 
 ## 🔭 Telegram Dashboard Commands
 
 | **Command** | **Action** |
 | --- | --- |
-| `/scan` | **Master Dashboard**: View Trend Bias, RSI, Checklist Progress, and "Waiting On" status for all assets. |
-| `/status` | **Wallet**: Real-time Equity (Demo/Live), Bridge Status, and Heartbeat. |
-| `/strategy` | **Rules Cheat Sheet**: Displays the word-for-word A+ Operator rules. |
-| `/risk [val]` | **Adjust Risk**: Set % per trade (e.g., `/risk 1.0`). No args shows current. |
-| `/trail [on/off]`| **Trail Toggle**: Enable/Disable Trailing Stop logic. Also supports `/trial`. |
+| `/scan` | **Master Dashboard**: View Trend Bias, RSI, checklist progress, and exact levels the bot is hunting. |
+| `/status` | **Wallet & Health**: Check Real-time Equity (Demo/Live), connection stats, and bridge latency. |
+| `/strategy` | **Rules Cheat Sheet**: Displays the exact A+ Operator logic. |
+| `/risk [val]` | **Adjust Risk**: Set % per trade (e.g., `/risk 1.0`). |
+| `/trail [on/off]`| **Trail Toggle**: Enable/Disable Trailing Stop logic. |
 | `/maxloss [val]` | **Drawdown Guard**: Set daily $ loss limit before auto-shutdown. |
 | `/news` | **Calendar**: View localized high-impact news (Melbourne Time). |
 | `/test [SYM]` | **Force Entry**: Open a micro test trade to verify connection. |
+| `/chart [SYM]` | **Visualizer**: Request a live chart snapshot of any symbol. |
 
 ## 🚀 Getting Started
 
 1.  **Python 3.10+** and **MetaTrader 5** (logged in) required.
-2.  **Configuration**: Set `BYBIT_DEMO=True` in `.env` to trade with your $500 Demo USDT.
+2.  **Configuration**: 
+    - Set `BYBIT_DEMO=True` in `.env` to use the official Bybit Demo environment.
+    - Ensure MT5 API access is enabled in `Tools -> Options -> Expert Advisors`.
 3.  **Run**: Execute `python main.py` or use the `watchdog.bat` for self-healing loops.
 
 ---

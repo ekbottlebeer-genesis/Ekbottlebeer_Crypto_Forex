@@ -40,7 +40,18 @@ class BybitBridge:
                     'demo': demo_trading
                 }
                 
-                self.session = HTTP(**kwargs)
+                self.session = HTTP(
+                    testnet=testnet,
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    demo=demo_trading,
+                )
+                
+                # FORCE DEMO DOMAIN if DEMO is True (Pybit sometimes defaults to main/testnet logic)
+                # Bybit Demo is on "api-demo.bybit.com" which is distinct strictly from testnet.bybit.com
+                if demo_trading:
+                    self.session.domain = "api-demo.bybit.com" 
+                
                 logger.info(f"Bybit Session Initialized successfully.")
             except Exception as e:
                 logger.error(f"Failed to initialize Bybit session: {e}")

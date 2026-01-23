@@ -100,12 +100,18 @@ def main():
     if os.getenv("BYBIT_API_KEY"): print("--> BYBIT_API_KEY detected.")
     else: print("--> ❌ BYBIT_API_KEY MISSING!")
 
-    # 2. Check for critical environment variables
+    # 3. Check for critical environment variables
     chk_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     missing = [v for v in chk_vars if not os.getenv(v)]
     if missing:
         logger.error(f"Missing environment variables: {missing}")
         return
+        
+    # Check Signal Channel (Non-Critical but important)
+    if os.getenv("TELEGRAM_SIGNAL_CHANNEL_ID"):
+        print("--> SIGNAL CHANNEL: DETECTED (Ready to Broadcast)")
+    else:
+        print("--> ⚠️ SIGNAL CHANNEL ID MISSING (.env). No signals will be sent.")
 
     # 3. Initialize Components
     bot = TelegramBot()
@@ -294,47 +300,32 @@ def main():
                     ltf_tf_scan = '5' if bridge == bybit_bridge else 5
                     ltf_scan_data = bridge.get_candles(symbol, timeframe=ltf_tf_scan, num_candles=50)
                     
-                    status_line = f"⏩ [NEUTRAL] Scanning..."
+                    status_line = f"⏩ [NEUTRAL] Wait HTF Sweep"
                     rsi_val = 50.0
                     bias = "NEUTRAL"
-                    state_desc = "Wait Sweep"
-                    waiting_on = "HTF Sweep"
                     
                     if ltf_scan_data is not None and not ltf_scan_data.empty:
                         try:
                             ltf_scan_data['rsi'] = smc.calculate_rsi(ltf_scan_data['close'], 14)
                             rsi_val = ltf_scan_data.iloc[-1]['rsi']
-                            if rsi_val > 60: 
-                                bias = "BULLISH"
-                                state_desc = "Momentum Up"
-                            elif rsi_val < 40: 
-                                bias = "BEARISH"
-                                state_desc = "Momentum Down"
-                            if rsi_val > 70: state_desc = "🔥 OVERBOUGHT!"
-                            if rsi_val < 30: state_desc = "🧊 OVERSOLD!"
-                            status_line = f"{bias:<7} | RSI: {rsi_val:>4.1f} | {state_desc}"
+                            if rsi_val > 60: bias = "BULLISH"
+                            elif rsi_val < 40: bias = "BEARISH"
+                            
+                            status_line = f"{bias:<7} | RSI: {rsi_val:>4.1f} | Wait HTF Sweep"
                         except: pass
                     
                     # Persist for Dashboard
                     waiting_on = f"Sweep High: {sweep.get('htf_high', 0):.5f} / Low: {sweep.get('htf_low', 0):.5f}"
                     state_manager.update_scan_data(symbol, {
-                        'bias': bias, 'rsi': rsi_val, 'status': state_desc, 'waiting_on': waiting_on, 'checkpoint': 'SWEEP'
+                        'bias': bias, 'rsi': rsi_val, 'status': "Scanning", 'waiting_on': waiting_on, 'checkpoint': 'SWEEP'
                     })
                     print(f"   📊 {symbol:<10} | {status_line}")
+                    continue
                 
+                # --- SWEEP DETECTED ---
                 if sweep['swept']:
                     side_name = "BEARISH (Short Setup)" if sweep['side'] == 'buy_side' else "BULLISH (Long Setup)"
-                    logger.info(f"🚨 HTF Sweep [{side_name}] Detected on {symbol} @ {sweep['level']}")
                     
-                    # Dash: Update state for sweep detected
-                    state_manager.update_scan_data(symbol, {
-                        'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
-                        'rsi': 50.0, # Placeholder until LTF check
-                        'status': f"Sweep Detected ({sweep['side']})",
-                        'waiting_on': "LTF MSS Confirm",
-                        'checkpoint': 'MSS'
-                    })
-
                     # 4. Drop to LTF (5m) for MSS
                     ltf_tf = '5' if bridge == bybit_bridge else 5
                     ltf_candles = bridge.get_candles(symbol, timeframe=ltf_tf, num_candles=200)
@@ -342,56 +333,57 @@ def main():
 
                     mss = smc.detect_mss(ltf_candles, sweep['side'], sweep['sweep_candle_time'])
                     
-                    if not mss.get('mss', False) and 'trigger_level' in mss:
-                         # Dash: Show the exact price we are waiting for
-                         state_manager.update_scan_data(symbol, {
-                             'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
-                             'rsi': 50.0,
-                             'status': "Sweep Confirmed",
-                             'waiting_on': f"M5 Close {mss['type']} {mss['trigger_level']:.5f}",
-                             'checkpoint': 'MSS'
-                         })
-                    
-                    if mss.get('mss', False):
-                        logger.info(f"⚡ MSS Confirmed on {symbol} @ {mss['level']}")
+                    # Log MSS Failure reason
+                    if not mss.get('mss', False):
+                        reason = mss.get('reason', 'Wait MSS break')
+                        trigger = mss.get('trigger_level', 0)
+                        type_str = mss.get('type', 'cross')
                         
+                        status_msg = f"⏱️ Wait MSS {type_str} {trigger:.5f}"
+                        if reason == 'Expired': status_msg = "❌ Setup Expired (>4h)"
+                        
+                        logger.info(f"   👀 {symbol:<10} | Sweep ✅ | {status_msg}")
+                        state_manager.update_scan_data(symbol, {
+                            'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
+                            'rsi': 0, 'status': "Sweep Confirmed", 'waiting_on': status_msg, 'checkpoint': 'MSS'
+                        })
+                        continue
+                    
+                    # --- MSS CONFIRMED ---
+                    if mss.get('mss', False):
                         # Calculate RSI for confluence check
                         ltf_candles['rsi'] = smc.calculate_rsi(ltf_candles['close'], 14)
                         current_rsi = ltf_candles.iloc[-1]['rsi']
 
-                        # Dash: Update status for FVG hunting
-                        state_manager.update_scan_data(symbol, {
-                            'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
-                            'rsi': current_rsi,
-                            'status': "MSS Confirmed ✅",
-                            'waiting_on': "FVG + RSI Confluence",
-                            'checkpoint': 'FVG'
-                        })
-                        
                         # Filter Logic (Matches Backtest)
+                        rsi_ok = False
                         if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias
-                             if not (30 <= current_rsi <= 60):
-                                rsi_msg = f"RSI {current_rsi:.1f} (Need 30-60)"
-                                state_manager.update_scan_data(symbol, {
-                                    'bias': 'BEARISH', 'rsi': current_rsi, 'status': "Wait RSI", 'waiting_on': rsi_msg, 'checkpoint': 'FVG'
-                                })
-                                continue
+                             if (30 <= current_rsi <= 70): # Relaxed to 70 for Short momentum
+                                rsi_ok = True
+                             else:
+                                logger.info(f"   📉 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-70)")
                         else: # We swept lows -> Bullish Bias
-                             if not (40 <= current_rsi <= 70):
-                                rsi_msg = f"RSI {current_rsi:.1f} (Need 40-70)"
-                                state_manager.update_scan_data(symbol, {
-                                    'bias': 'BULLISH', 'rsi': current_rsi, 'status': "Wait RSI", 'waiting_on': rsi_msg, 'checkpoint': 'FVG'
-                                })
-                                continue
+                             if (30 <= current_rsi <= 70): # Relaxed to 30 for Long momentum
+                                rsi_ok = True
+                             else:
+                                logger.info(f"   📈 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-70)")
+                        
+                        if not rsi_ok:
+                            state_manager.update_scan_data(symbol, {
+                                'bias': 'PENDING', 'rsi': current_rsi, 'status': "MSS Valid", 'waiting_on': "RSI Range", 'checkpoint': 'FVG'
+                            })
+                            continue
                         
                         # 5. Find FVG Entry (Premium/Discount Linked)
                         direction_bias = 'bearish' if sweep['side'] == 'buy_side' else 'bullish'
                         fvgs = smc.find_fvg(ltf_candles, direction_bias, mss['leg_high'], mss['leg_low'])
                         
                         if not fvgs:
+                            logger.info(f"   🔍 {symbol:<10} | MSS ✅ | RSI ✅ | Wait FVG in {direction_bias} zone")
                             state_manager.update_scan_data(symbol, {
                                 'bias': direction_bias.upper(), 'rsi': current_rsi, 'status': "Wait FVG", 'waiting_on': "Formation in Prem/Disc", 'checkpoint': 'FVG'
                             })
+                            continue
                         
                         if fvgs:
                              fvg = fvgs[0]
@@ -473,7 +465,9 @@ def main():
                                 logger.error(f"Failed to generate auto-evidence chart: {e_vis}")
 
                             if position_sizer.check_risk_reward(entry_price, sl_price, tp_price):
-                                units = position_sizer.calculate_position_size(balance, entry_price, sl_price, symbol)
+                                # Fetch instrument info (contract size, volume steps)
+                                inst_info = bridge.get_instrument_info(symbol)
+                                units = position_sizer.calculate_position_size(balance, entry_price, sl_price, symbol, instrument_info=inst_info)
                                 
                                 if units > 0:
                                     logger.info(f"🚀 EXECUTING {direction_bias.upper()} on {symbol}. Units: {units:.4f}")

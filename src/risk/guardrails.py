@@ -13,8 +13,8 @@ class RiskGuardrails:
         self.max_session_loss = 500.0 # Default
         self.high_impact_events = []
         self.last_fetch_time = datetime.min
-        # Load News Mode preference (Default: ON)
-        self.news_filter_enabled = self.state_manager.state.get('news_filter_enabled', True)
+        # Load News Mode preference (Default: OFF as per user request)
+        self.news_filter_enabled = self.state_manager.state.get('news_filter_enabled', False)
 
     def set_news_mode(self, enabled: bool):
         """Toggles the News Filter ON/OFF."""
@@ -49,7 +49,9 @@ class RiskGuardrails:
         Fetches economic calendar. Checks local cache first to avoid API limits.
         """
         import json
+        import pytz
         cache_file = "news_cache.json"
+        now_utc = datetime.now(pytz.UTC)
         
         # 1. Try Load from Cache
         if os.path.exists(cache_file):
@@ -64,8 +66,18 @@ class RiskGuardrails:
                          # Re-hydrate dates
                          self.high_impact_events = []
                          for e in cache['events']:
-                             e['time'] = datetime.fromisoformat(e['time'])
-                             self.high_impact_events.append(e)
+                             dt = datetime.fromisoformat(e['time'])
+                             if dt.tzinfo is None: dt = pytz.UTC.localize(dt)
+                             
+                             # FILTER: Only load future events (or very recent past < 2h)
+                             if (dt - now_utc).total_seconds() > -7200:
+                                 self.high_impact_events.append({
+                                     'title': e['title'],
+                                     'time': dt,
+                                     'impact': e['impact'],
+                                     'currency': e['currency']
+                                 })
+                         
                          self.last_fetch_time = cache_time
                          return
             except Exception as e:
@@ -80,7 +92,6 @@ class RiskGuardrails:
             
             # XML Parsing
             import xml.etree.ElementTree as ET
-            import pytz
             root = ET.fromstring(response.content)
             
             events = []
@@ -97,28 +108,31 @@ class RiskGuardrails:
                     tz_ny = pytz.timezone('America/New_York')
                     event_dt = tz_ny.localize(event_dt).astimezone(pytz.UTC)
                     
-                    evt = {
-                        'title': child.find('title').text,
-                        'time': event_dt,
-                        'impact': impact,
-                        'currency': 'USD'
-                    }
-                    events.append(evt)
-                    
-                    # Store serialized version
-                    evt_ser = evt.copy()
-                    evt_ser['time'] = evt['time'].isoformat()
-                    cache_events.append(evt_ser)
+                    # FILTER: Only keep future events (or very recent past)
+                    if (event_dt - now_utc).total_seconds() > -7200:
+                        evt = {
+                            'title': child.find('title').text,
+                            'time': event_dt,
+                            'impact': impact,
+                            'currency': 'USD'
+                        }
+                        events.append(evt)
+                        
+                        # Store serialized version
+                        evt_ser = evt.copy()
+                        evt_ser['time'] = evt['time'].isoformat()
+                        cache_events.append(evt_ser)
                     
                 except: continue
                     
             self.high_impact_events = events
             self.last_fetch_time = datetime.now()
-            logger.info(f"Fetched {len(events)} High Impact USD events from Forex Factory.")
+            logger.info(f"Fetched {len(events)} Future High Impact USD events from Forex Factory.")
             
             # 3. Save to Cache
             try:
                 with open(cache_file, 'w') as f:
+                    # Save even if empty to track partial fetches
                     json.dump({'timestamp': datetime.now().isoformat(), 'events': cache_events}, f)
             except Exception as e:
                 logger.warning(f"Failed to save news cache: {e}")
@@ -127,7 +141,6 @@ class RiskGuardrails:
             logger.error(f"Failed to fetch Forex Factory calendar: {e}")
             if "429" in str(e): logger.warning("Hypersensitive Rate Limit active. Cool down enforced.")
             self.last_fetch_time = datetime.now() # Cooldown
-            self.high_impact_events = []
 
     def check_news(self, symbol):
         """

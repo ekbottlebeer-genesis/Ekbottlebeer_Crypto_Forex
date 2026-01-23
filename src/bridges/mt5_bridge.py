@@ -20,16 +20,27 @@ class MT5Bridge:
         """
         if not self.connected: self.connect()
         
-        info = mt5.symbol_info(symbol)
+        found_symbol = self._find_symbol(symbol)
+        if not found_symbol:
+            logger.error(f"Failed to find symbol {symbol} (or any variant) for info.")
+            return None
+
+        # 1. Selection (Required for some brokers to "activate" symbol info)
+        if not mt5.symbol_select(found_symbol, True):
+            logger.warning(f"Failed to SELECT {found_symbol} in Market Watch. Attempting info anyway.")
+
+        # 2. Fetch Info
+        info = mt5.symbol_info(found_symbol)
         if not info:
-            logger.error(f"Failed to get symbol info for {symbol}")
+            logger.error(f"Failed to get symbol info for {found_symbol}. MT5 Error: {mt5.last_error()}")
             return None
             
         return {
             'contract_size': info.trade_contract_size,
             'min_volume': info.volume_min,
             'max_volume': info.volume_max,
-            'volume_step': info.volume_step
+            'volume_step': info.volume_step,
+            'digits': info.digits
         }
 
     def connect(self):
@@ -44,11 +55,49 @@ class MT5Bridge:
         return True
 
     def _find_symbol(self, symbol):
-        """Helper to find the correct symbol variant (e.g. with .a suffix)."""
-        variants = [symbol, symbol.upper(), symbol + ".a", symbol.upper() + ".a", symbol + ".m", symbol.upper() + ".m"]
+        """Helper to find the correct symbol variant (e.g. with .a suffix or different case)."""
+        # 1. Try common suffixes
+        suffixes = ["", ".a", ".m", ".i", ".pro", ".x", ".z", "!", "#", "_", ".ext", ".abc"]
+        variants = []
+        base = symbol.split('.')[0] # Try to get base name if it has a suffix already
+        
+        for sfx in suffixes:
+            variants.append(symbol + sfx)
+            variants.append(symbol.upper() + sfx)
+            if base != symbol:
+                variants.append(base + sfx)
+                variants.append(base.upper() + sfx)
+
+        # Remove duplicates
+        variants = list(dict.fromkeys(variants))
+        
         for v in variants:
-            if mt5.symbol_info(v) is not None:
+            info = mt5.symbol_info(v)
+            if info is not None:
                 return v
+
+        # 2. Aggressive Fallback: Search ALL symbols for a partial match
+        # Useful for symbols like "GOLD" vs "XAUUSD"
+        all_symbols = mt5.symbols_get()
+        if all_symbols:
+            search_term = symbol.upper()
+            # Special case for Gold
+            if "XAU" in search_term or "GOLD" in search_term:
+                potential_gold = [s.name for s in all_symbols if "XAU" in s.name.upper() or "GOLD" in s.name.upper()]
+                if potential_gold:
+                    # Prefer exact-ish matches
+                    for p in potential_gold:
+                        if search_term in p.upper() or p.upper() in search_term:
+                            return p
+                    return potential_gold[0]
+
+            for s in all_symbols:
+                if search_term == s.name.upper():
+                    return s.name
+                if search_term in s.name.upper() or s.name.upper() in search_term:
+                    # Only return if it's reasonably close (e.g. "XAUUSD" in "XAUUSD.m")
+                    return s.name
+
         return None
 
     def get_candles(self, symbol, timeframe, num_candles=1000):
@@ -106,11 +155,12 @@ class MT5Bridge:
         """
         if not self.connected: self.connect()
         
-        # Map string types to MT5 Constants
-        # Note: Standard MT5 order types:
-        # ORDER_TYPE_BUY_LIMIT, ORDER_TYPE_SELL_LIMIT
-        # ORDER_TYPE_BUY_STOP, ORDER_TYPE_SELL_STOP
-        
+        found_symbol = self._find_symbol(symbol)
+        if not found_symbol:
+            logger.error(f"MT5: Symbol {symbol} NOT FOUND for order placement.")
+            return None
+
+        # 1. Map string types to MT5 Constants
         type_map = {
             'buy_limit': mt5.ORDER_TYPE_BUY_LIMIT,
             'sell_limit': mt5.ORDER_TYPE_SELL_LIMIT,
@@ -125,33 +175,109 @@ class MT5Bridge:
             logger.error(f"Invalid order type: {order_type}")
             return None
 
-        # Check symbol info for volume steps / filling modes if needed
-        # For simplicity, we assume standard filling (ORDER_FILLING_IOC or FOK depending on broker)
+        # 2. GET SYMBOL INFO for Normalization
+        info = mt5.symbol_info(found_symbol)
+        if not info:
+            logger.error(f"Failed to get info for {found_symbol}")
+            return None
+
+        # 3. NORMALIZE VOLUME (Step + Precision)
+        step = info.volume_step
+        norm_volume = round(volume / step) * step
+        # Final safety round to avoid floating point ghosts
+        v_decimals = str(step)[::-1].find('.')
+        if v_decimals < 0: v_decimals = 2
+        norm_volume = round(norm_volume, v_decimals)
+
+        # 4. NORMALIZE PRICES (Digits)
+        digits = info.digits
+        norm_price = round(price, digits)
+        norm_sl = round(stop_loss, digits)
+        norm_tp = round(take_profit, digits)
+        
+        # 4b. CHECK STOPS LEVEL (Min Distance)
+        # If SL/TP is too close to current price, trade will fail with 10013
+        # For PENDING orders, distance is from order price.
+        # For MARKET orders, distance is from current Bid/Ask.
+        
+        current_tick = mt5.symbol_info_tick(found_symbol)
+        current_price_ref = norm_price # Default to order price for pending
+        
+        is_market = 'market' in order_type
+        if is_market:
+            # For Market execution, Price field in request should often be 0 or current Ask/Bid depending on broker
+            # But usually for Python API, we set it to Ask/Bid to be safe, or 0.
+            # Using specific price for Market execution can sometimes cause "Invalid Price" if market moves.
+            # Best practice: Set price to 0.0 for DEAL action if it's instant execution, 
+            # UNLESS it's "Market Execution" mode where SL/TP must be empty initially.
+            # Here we assume we can send SL/TP with Valid Price.
+            current_price_ref = current_tick.ask if 'buy' in order_type else current_tick.bid
+            norm_price = current_price_ref # Update target price to current for calculation check
+            
+        stops_level_points = info.trade_stops_level
+        point_size = info.point
+        min_dist = stops_level_points * point_size
+        
+        # Verify SL distance
+        if abs(norm_price - norm_sl) < min_dist:
+            logger.warning(f"MT5: SL too close! Dist: {abs(norm_price - norm_sl):.5f} < Min: {min_dist:.5f}. Adjusting...")
+            # Adjust SL to be valid
+            if 'buy' in order_type: # Long: SL below
+                norm_sl = norm_price - min_dist - point_size
+            else: # Short: SL above
+                norm_sl = norm_price + min_dist + point_size
+            norm_sl = round(norm_sl, digits)
+            
+        # 5. DETECT FILLING MODE 
+        filling = mt5.ORDER_FILLING_RETURN
+        if info.filling_mode & mt5.SYMBOL_FILLING_FOK:
+            filling = mt5.ORDER_FILLING_FOK
+        elif info.filling_mode & mt5.SYMBOL_FILLING_IOC:
+            filling = mt5.ORDER_FILLING_IOC
+
+        action = mt5.TRADE_ACTION_PENDING if 'limit' in order_type or 'stop' in order_type else mt5.TRADE_ACTION_DEAL
+        
+        # If Market execution, price MUST be proper (or 0 depending on strictness), but let's try strict Ask/Bid
+        if is_market:
+             norm_price = current_tick.ask if 'buy' in order_type else current_tick.bid
         
         request = {
-            "action": mt5.TRADE_ACTION_PENDING if 'limit' in order_type or 'stop' in order_type else mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": float(volume),
+            "action": action,
+            "symbol": found_symbol,
+            "volume": norm_volume,
             "type": mt5_type,
-            "price": float(price),
-            "sl": float(stop_loss),
-            "tp": float(take_profit),
-            "deviation": 20,
+            "price": norm_price,
+            "sl": norm_sl,
+            "tp": norm_tp,
+            "deviation": 50, # Increased deviation for slippage
             "magic": 123456,
             "comment": comment,
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_RETURN,
+            "type_filling": filling,
         }
         
-        # If market order, price might need to be current ask/bid, although usually ignored or 0 for market, 
-        # but required to be valid for send.
+        logger.info(f"MT5 sending: {request}")
         
         result = mt5.order_send(request)
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            logger.error(f"Order Send Failed: {result.retcode} - {result.comment}")
+        if not result or result.retcode != mt5.TRADE_RETCODE_DONE:
+            err_code = result.retcode if result else "NO_RESULT"
+            err_msg = result.comment if result else "Unknown Error"
+            logger.error(f"MT5 Order Failed: {err_code} - {err_msg}")
+            
+            # RETRY with Fallback Filling Modes
+            if err_code == 10013 or err_code == 10014 or err_code == 10015: # Invalid Req / Volume / Price
+                for alt_filling in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
+                    if alt_filling == filling: continue
+                    request["type_filling"] = alt_filling
+                    logger.info(f"MT5: Retrying with filling: {alt_filling}")
+                    result = mt5.order_send(request)
+                    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                        logger.info(f"Order Success on Retry! Ticket: {result.order}")
+                        return result.order
+            
             return None
             
-        logger.info(f"Order Placed on MT5: {symbol} {order_type} @ {price}, Ticket: {result.order}")
+        logger.info(f"Order Placed on MT5: {found_symbol} {order_type} @ {norm_price}, Ticket: {result.order}")
         return result.order
 
     def modify_order(self, ticket, sl=None, tp=None, price=None):
