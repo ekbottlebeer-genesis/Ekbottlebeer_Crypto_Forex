@@ -127,10 +127,27 @@ def main():
             # Identify all symbols with active trades
             active_trade_symbols = {t['symbol'] for t in active_trades}
             
+            # Print Active Trades Summary first
+            if active_trades:
+                print(f"   🔥 ACTIVE TRADES: {[t['symbol'] for t in active_trades]}")
+            
             # Combine loop: Watchlist (Hunting) + Active Trades (Managing)
             all_monitored_symbols = watchlist.union(active_trade_symbols)
             
             # --- 2. Market Scan Loop ---
+            
+            # Console HUD - Scan Header
+            c_lst = [s for s in watchlist if s in session_manager.crypto_symbols]
+            f_lst = [s for s in watchlist if s not in session_manager.crypto_symbols]
+            
+            t_str = datetime.now().strftime('%H:%M:%S')
+            logger.info(f"Scan Cycle {t_str}") # Keep log simple
+            
+            print(f"\n[{t_str}] 🔍 Scanning {len(watchlist)} assets ({', '.join(current_sessions)})...")
+            print(f"   Items Scanning: ")
+            print(f"   Pepperstone: {f_lst if f_lst else '[]'}")
+            print(f"   Bybit:       {c_lst if c_lst else '[]'}")
+            
             for symbol in all_monitored_symbols:
                 # Bridge Selection
                 bridge = None
@@ -181,11 +198,12 @@ def main():
                 if symbol not in watchlist: continue
                 
                 if system_status == 'paused' or market_status == 'paused':
-                     # logger.debug(f"Skipping {symbol} (Paused)")
+                     print(f"   ⏸️ {symbol}: [PAUSED]")
                      continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
+                    print(f"   🚫 {symbol}: [NEWS FILTER]")
                     continue
                     
                 # 1.5. Spread Protection (Crucial for Scalping)
@@ -206,7 +224,7 @@ def main():
                 # Guardrails should handle the logic, we pass value.
                 
                 if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
-                     # logger.debug(f"Skipping {symbol} due to spread {spread:.5f}")
+                     print(f"   ⚠️ {symbol}: [SPREAD HIGH] ({spread:.5f})")
                      continue
                     
                 # 2. Fetch Data (HTF - 1H)
@@ -219,6 +237,9 @@ def main():
 
                 # 3. Detect HTF Sweep
                 sweep = smc.detect_htf_sweeps(htf_candles)
+                
+                if not sweep['swept']:
+                    print(f"   ⏩ {symbol}: [NEUTRAL] Scanning...")
                 
                 if sweep['swept']:
                     logger.info(f"🚨 HTF Sweep Detected on {symbol}: {sweep['desc']} @ {sweep['level']}")
