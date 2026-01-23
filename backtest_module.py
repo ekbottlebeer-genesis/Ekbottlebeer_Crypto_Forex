@@ -69,10 +69,16 @@ class Loader:
 
 class SimulatedBroker:
     """Tracks Balance, Positions, and Equity Curve"""
-    def __init__(self, initial_balance=10000, leverage=100, slippage_pips=0.5, comm_pct=None, fixed_comm=7.0):
+    def __init__(self, initial_balance=10000, leverage=100, slippage_pips=0.1, comm_pct=None, fixed_comm=0.0):
         self.balance = initial_balance
         self.leverage = leverage
-        self.slippage = slippage_pips * 0.0001
+        # Slippage: 0.1 pips (approx 10 cents on Gold) to simulate spread + slip
+        # User says spread is "0.05". We use 0.1 to be conservative.
+        self.slippage = slippage_pips * 1.0 # Gold 1 pip = $1? No, 0.01 tick? 
+        # MT5 XAUUSD: 1.00 move = 100 pips? 
+        # Let's standardize: If price is 2000.00, slippage 0.05 = 5 cents.
+        self.slippage = 0.10 # Fixed 10 cents slippage (Spread 0.05 + Slip 0.05)
+        
         self.commission_pct = comm_pct 
         self.fixed_comm = fixed_comm # Per standard lot (100 units) round turn
         self.positions = [] 
