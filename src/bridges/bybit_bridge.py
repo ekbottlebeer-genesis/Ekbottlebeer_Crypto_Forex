@@ -265,10 +265,26 @@ class BybitBridge:
     def get_balance(self):
         if not self.session: return 0.0
         try:
+             # For Unified Account, USDT is often the base.
+             # We try to get the balance for USDT specifically first.
              resp = self.session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
+             
              if resp['retCode'] == 0:
-                 # Parse equity
-                 return float(resp['result']['list'][0]['totalEquity'])
-        except:
+                 acc_list = resp['result']['list']
+                 if acc_list:
+                     acc = acc_list[0]
+                     # totalEquity is the total account value in USD
+                     equity = float(acc.get('totalEquity', 0))
+                     if equity > 0: return equity
+                     
+                     # If totalEquity is 0, check specific coin equity or wallet balance
+                     coin_list = acc.get('coin', [])
+                     for c in coin_list:
+                         if c['coin'] == 'USDT':
+                             return float(c.get('equity', c.get('walletBalance', 0)))
+                 
+             logger.warning(f"Bybit Balance Fetch returned 0 or error: {resp.get('retMsg', 'Unknown')}")
              return 0.0
-        return 0.0
+        except Exception as e:
+             logger.error(f"Error fetching Bybit balance: {e}")
+             return 0.0
