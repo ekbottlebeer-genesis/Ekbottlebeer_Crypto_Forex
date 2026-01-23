@@ -19,13 +19,31 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
 **Goal**: Process data and make high-probability decisions.
 - **Strategy** (`src/strategy/smc_logic.py`):
   1.  **HTF Sweep Filter**: Detects liquidity sweeps on the 1H timeframe. **Smartly identifies Double Tops/Bottoms** (EQH/EQL) for A+ confirmation.
-  2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 1 hour).
-  3.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (for Longs) or **Premium** (for Shorts).
-  4.  **Spread Filter**: Automatically skips setups if spread > 5.0 (Protection against volatility).
+  2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 4 hours).
+  3.  **RSI Confluence** (NEW):
+      - **Longs**: RSI must be > 40 (Momentum) and < 70 (Not Overbought).
+      - **Shorts**: RSI must be < 60 (Momentum) and > 30 (Not Oversold).
+  4.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (for Longs) or **Premium** (for Shorts).
+  5.  **Spread Filter**: Automatically skips setups if spread > 5.0 (Protection against volatility).
 - **Risk Guardrails** (`src/risk/guardrails.py`):
   - **30/30 News Rule**: Avoids trading 30 mins before/after Red Folder events (USD).
-  - **News Toggle**: Manually override news logic with `/newsmode`.
   - **Session Lock**: Pauses trading if Max Session Loss is hit.
+
+## 🔄 Dual-Mode Operation
+
+The bot is designed to operate in two distinct modes:
+
+### 1. LIVE Mode (`main.py`)
+- **Connects to**: Real Markets via MT5 (Forex/Gold) and Bybit (Crypto).
+- **Execution**: Takes real trades with real money/demo funds.
+- **Monitoring**: Scans for setups in real-time `While True` loop.
+
+### 2. BACKTEST Mode (`backtest_module.py`)
+- **Connects to**: Historical CSV Data (e.g., `XAUUSD.a_M1.csv`).
+- **Execution**: Simulates trades with a Virtual Broker (0 Commission, 0.10 Slippage).
+- **Monitoring**: Iterates through history bar-by-bar to validate strategy performance.
+
+> **Note**: Both modes use the **exact same** logic (`smc_logic.py`) to ensure what you test is what you trade.
 
 ### ✋ The Hand (Execution)
 **Goal**: Execute and manage trades with surgical precision.

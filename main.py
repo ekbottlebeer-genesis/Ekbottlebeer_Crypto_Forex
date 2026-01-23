@@ -223,6 +223,23 @@ def main():
                     if mss.get('mss', False):
                         logger.info(f"⚡ MSS Confirmed on {symbol} @ {mss['level']}")
                         
+                        # --- 4.5 RSI Confluence (ADDED) ---
+                        # We have ltf_candles. Calculate RSI.
+                        ltf_candles['rsi'] = smc.calculate_rsi(ltf_candles['close'], 14)
+                        current_rsi = ltf_candles.iloc[-1]['rsi']
+                        
+                        # Filter Logic (Matches Backtest)
+                        if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias
+                             # Short: RSI < 60 (Momenum down) AND RSI > 30 (Not Oversold)
+                             if not (30 <= current_rsi <= 60):
+                                 # logger.debug(f"Skipping {symbol} Short. RSI {current_rsi:.1f} Invalid.")
+                                 continue
+                        else: # We swept lows -> Bullish Bias
+                             # Long: RSI > 40 (Momentum up) AND RSI < 70 (Not Overbought)
+                             if not (40 <= current_rsi <= 70):
+                                 # logger.debug(f"Skipping {symbol} Long. RSI {current_rsi:.1f} Invalid.")
+                                 continue
+                        
                         # 5. Find FVG Entry (Premium/Discount Linked)
                         direction_bias = 'bearish' if sweep['side'] == 'buy_side' else 'bullish'
                         fvgs = smc.find_fvg(ltf_candles, direction_bias, mss['leg_high'], mss['leg_low'])
