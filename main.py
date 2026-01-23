@@ -38,7 +38,7 @@ def process_telegram_updates(bot, last_id, context):
                         bot.send_message(resp, chat_id=chat_id)
         return last_id
     except Exception as e:
-        # Silently fail or log if needed, avoid crashing main thread
+        logger.error(f"Telegram Update Error: {e}", exc_info=True)
         return last_id
 
 # Setup logging
