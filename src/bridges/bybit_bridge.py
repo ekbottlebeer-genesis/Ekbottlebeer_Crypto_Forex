@@ -253,31 +253,33 @@ class BybitBridge:
     def get_balance(self):
         if not self.session: return 0.0
         try:
-             # For Unified Account, USDT is often the base.
+             # Standard: Unified Trading Account / Demo
              resp = self.session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
              
-             # PHASE 13 TRACING
-             logger.info(f"DEBUG: Bybit Balance Response: retCode={resp.get('retCode')}, retMsg={resp.get('retMsg')}")
+             # PHASE 16 ULTRA-VERBOSE TRACING
+             logger.info(f"DEBUG: Bybit Full Balance Response: {resp}")
              
              if resp['retCode'] == 0:
                  acc_list = resp['result']['list']
                  if acc_list:
                      acc = acc_list[0]
-                     # totalEquity is the total account value in USD
+                     # Try to get balance from various keys (depending on Bybit sub-type)
                      equity = float(acc.get('totalEquity', 0))
-                     logger.info(f"DEBUG: Bybit Total Equity Found: {equity}")
-                     
                      if equity > 0: return equity
                      
-                     # If totalEquity is 0, check specific coin equity or wallet balance
+                     # Check coin list
                      coin_list = acc.get('coin', [])
                      for c in coin_list:
-                         logger.info(f"DEBUG: Bybit Coin Balance: {c.get('coin')} = {c.get('walletBalance')}")
                          if c['coin'] == 'USDT':
                              return float(c.get('equity', c.get('walletBalance', 0)))
-                 else:
-                     logger.warning("Bybit: Account list in balance response is empty.")
              
+             # FALLBACK: Try fetching without specifying USDT (Get all and look for max)
+             gen_resp = self.session.get_wallet_balance(accountType="UNIFIED")
+             if gen_resp['retCode'] == 0 and gen_resp['result']['list']:
+                 gen_acc = gen_resp['result']['list'][0]
+                 gen_equity = float(gen_acc.get('totalEquity', 0))
+                 if gen_equity > 0: return gen_equity
+                 
              return 0.0
         except Exception as e:
              logger.error(f"Error fetching Bybit balance: {e}")
