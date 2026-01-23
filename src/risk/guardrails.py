@@ -158,17 +158,33 @@ class RiskGuardrails:
             return True
             
         # Check against upcoming events
-        # Usually need pytz for comparison
         import pytz
         now_utc = datetime.now(pytz.UTC)
         
+        # Determine Symbol Currencies (e.g. XAUUSD -> XAU, USD | BTCUSDT -> BTC, USDT, USD)
+        # Simplified: Check if event currency string is IN the symbol
+        
         for event in self.high_impact_events:
-             # Check if symbol relates to USD? Most pairs do.
-             # Strict safety: If ANY USD Red Folder, we pause EVERYTHING.
+             event_ccy = event['currency'] # e.g. 'USD', 'EUR'
+             
+             # INTELLIGENT FILTER:
+             # Only pause if the event currency affects this specific symbol.
+             # e.g. "EUR" news should not pause "USDJPY".
+             # "USD" news affects "XAUUSD", "BTCUSDT", "EURUSD".
+             if event_ccy not in symbol:
+                 # Special Case: Gold (XAU) is priced in USD usually
+                 if "GOLD" in symbol and event_ccy == "USD":
+                     pass # Matches
+                 # Special Case: Crypto (BTCUSDT) often ignores minor USD forex news, but NFP/CPI hits it.
+                 # For now, we trust strict match. If symbol is 'AUDJPY', 'USD' news is ignored.
+                 else:
+                     continue
+             
              time_diff = (event['time'] - now_utc).total_seconds() / 60.0
              
+             # 30 minute buffer before and after
              if -30 <= time_diff <= 30:
-                 logger.warning(f"🚫 NEWS HALT: {event['title']} at {event['time']} (Diff: {time_diff:.1f}m)")
+                 logger.warning(f"🚫 NEWS HALT: {symbol} paused for {event['title']} [{event_ccy}] (T{time_diff:+.1f}m)")
                  return False
                  
         return True
