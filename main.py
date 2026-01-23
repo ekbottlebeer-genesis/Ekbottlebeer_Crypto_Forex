@@ -101,6 +101,7 @@ def main():
     # 4. Main Loop
     logger.info("System initialized. Entering main loop...")
     last_heartbeat = time.time()
+    last_update_id = 0 # Telegram Offset Tracking
     
     try:
         while True:
@@ -116,8 +117,11 @@ def main():
                 continue
             
              # --- 0. Check Requests (High Priority) ---
-            updates = bot.get_updates()
+            # 1s timeout to keep loop responsive
+            updates = bot.get_updates(offset=last_update_id + 1, timeout=1)
+            
             if updates:
+                print(f"DEBUG: Processing {len(updates)} Telegram updates...")
                 context = {
                     'state_manager': state_manager,
                     'session_manager': session_manager,
@@ -132,8 +136,10 @@ def main():
                     'bybit_trade_manager': bybit_trade_manager
                 }
                 for update in updates:
+                    last_update_id = update['update_id'] # Update Offset
                     if 'message' in update and 'text' in update['message']:
                         text = update['message']['text']
+                        print(f"DEBUG: Cmd received: {text}")
                         parts = text.split(' ', 1)
                         command = parts[0]
                         args = parts[1] if len(parts) > 1 else ""

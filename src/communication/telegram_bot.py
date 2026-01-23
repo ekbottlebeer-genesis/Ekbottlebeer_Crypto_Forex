@@ -375,14 +375,14 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Failed to send Telegram photo: {e}")
 
-    def get_updates(self, offset=None):
+    def get_updates(self, offset=None, timeout=10):
         """Check for new messages (commands)."""
         if not self.token:
             return []
 
         try:
             url = f"{self.base_url}/getUpdates"
-            params = {"timeout": 10}
+            params = {"timeout": timeout}
             if offset:
                 params["offset"] = offset
             
@@ -390,6 +390,9 @@ class TelegramBot:
             response.raise_for_status()
             return response.json().get("result", [])
         except Exception as e:
+            # Silence timeout read errors if timeout is small? 
+            # Requests raises ReadTimeout if server doesn't respond? 
+            # Actually Telegram Long Polling just returns empty list usually.
             if "409" in str(e):
                 logger.critical("⚠️ TELEGRAM CONFLICT (409): Another instance is running! Please kill old processes.")
             else:
