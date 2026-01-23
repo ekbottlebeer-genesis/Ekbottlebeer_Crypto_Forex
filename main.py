@@ -503,7 +503,7 @@ def main():
             else: print("   (No Active Symbols)")
             
             print(f"\n💱 PEPPERSTONE (Forex) ──────────")
-             if pepper_rows:
+            if pepper_rows:
                 for r in sorted(pepper_rows): print(f"   {r}")
             else: print("   (No Active Symbols)")
 
