@@ -20,6 +20,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Custom Log Handler for Telegram /logs command
+class RingBufferHandler(logging.Handler):
+    def __init__(self, capacity=10):
+        super().__init__()
+        self.capacity = capacity
+        self.buffer = []
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.buffer.append(msg)
+        if len(self.buffer) > self.capacity:
+            self.buffer.pop(0)
+    
+    def get_logs(self):
+        return "\n".join(self.buffer)
+
 def get_bot_version():
     """Retrieves the current version (Git Short Hash)."""
     try:
@@ -38,6 +54,11 @@ def main():
     load_dotenv()
     
     VERSION = get_bot_version()
+    
+    # Initialize RingBuffer for /logs
+    log_buffer = RingBufferHandler(capacity=15)
+    log_buffer.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(log_buffer) # Add to root logger
     
     logging.info(f"Initializing The Ekbottlebeer A+ Operator [{VERSION}]...")
     print(f"--> BOOTING VERSION: {VERSION}") # Console visibility
@@ -66,7 +87,7 @@ def main():
         bot.send_message("✅ MT5 Bridge Connected")
     else:
         bot.send_message("⚠️ MT5 Bridge Connection Failed (Check Login/Server)")
-
+        
     bybit_bridge = BybitBridge()
     bot.send_message("✅ Bybit Bridge Initialized")
     
@@ -143,8 +164,11 @@ def main():
 
                 # --- B. Hunt for Setups (SMC Logic) ---
                 # ONLY run this if the symbol is in the ACTIVE SESSION WATCHLIST
-                if symbol not in watchlist:
-                    # logger.debug(f"Skipping Search for {symbol} (Out of Session)")
+                # Also check PAUSE status
+                system_status = state_manager.state.get('system_status', 'active')
+                
+                if symbol not in watchlist or system_status == 'paused':
+                    # logger.debug(f"Skipping Search for {symbol} (Out of Session/Paused)")
                     continue
                 
                 # 1. Check News Filter
@@ -309,7 +333,11 @@ def main():
                     'visualizer': visualizer,
                     'mt5_bridge': mt5_bridge,
                     'bybit_bridge': bybit_bridge,
-                    'smc': smc
+                    'smc': smc,
+                    'position_sizer': position_sizer,
+                    'logger_buffer': log_buffer,
+                    'mt5_trade_manager': mt5_trade_manager,
+                    'bybit_trade_manager': bybit_trade_manager
                 }
                 for update in updates:
                     if 'message' in update and 'text' in update['message']:
@@ -319,18 +347,7 @@ def main():
                         command = parts[0]
                         args = parts[1] if len(parts) > 1 else ""
                         
-                        # Detect SMC to overlay
-                        # We recycle the detection logic just for visualization
-                        sweeps = context['smc'].detect_htf_sweeps(df)
-                        # We can't easily find FVGs without full context scan (MSS etc).
-                        # For now, we only chart candles. 
-                        # To show "Fancy Boxes", we should ideally show the ones ACTIVE in state.
-                        
-                        # Future: pass active FVGs from context['state_manager'].
-                        fvgs = [] 
-                        
-                        # Generate
-                        chart_path = await context['visualizer'].generate_chart(df, symbol, timeframe, fvgs=fvgs)
+                        bot.handle_command(command, args, context)
 
             time.sleep(5) # Scan delay
             

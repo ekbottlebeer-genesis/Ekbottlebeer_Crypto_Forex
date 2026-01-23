@@ -137,7 +137,6 @@ class TelegramBot:
             return "Scanning markets..."
             
         elif cmd == '/status':
-             # Real implementation would query bridges from context
             mt5_bal = context['mt5_bridge'].get_balance() if context and 'mt5_bridge' in context else "N/A"
             bybit_bal = context['bybit_bridge'].get_balance() if context and 'bybit_bridge' in context else "N/A"
             return f"💰 **Wallet Status**\nMT5 Equity: ${mt5_bal}\nBybit Equity: ${bybit_bal}"
@@ -148,7 +147,9 @@ class TelegramBot:
             return f"✅ **Diagnostics**\nMT5 Bridge: {'🟢' if mt5_ok else '🔴'}\nBybit Bridge: {'🟢' if bybit_ok else '🔴'}\nServer Heartbeat: Active"
             
         elif cmd == '/logs':
-            return "📝 **Live Logs** (Last 10)\n[INFO] System initialized...\n[INFO] Connected to MT5...\n[INFO] Entering main loop...\n[INFO] Scanning EURUSD...\n(Log piping not enabled in Telegram)"
+            if context and 'logger_buffer' in context:
+                return f"📝 **Live Logs** (Last 15)\n```\n{context['logger_buffer'].get_logs()}\n```"
+            return "📝 Logs not available."
             
         elif cmd == '/chart':
             if not args: return "⚠️ Usage: /chart [SYMBOL]"
@@ -160,14 +161,12 @@ class TelegramBot:
                 else:
                     bridge = context.get('mt5_bridge')
             
-            if not bridge: return "⚠️ Bridge not found or symbol unrecognized."
+            if not bridge: return "⚠️ Bridge not found."
 
             # Fetch Data (H1 Default for Context)
             df = None
             try:
-                # Dispatch based on bridge type check or duck typing
                 is_bybit = hasattr(bridge, 'session') 
-                # MT5 H1=16385, Bybit='60'
                 tf = '60' if is_bybit else 16385 
                 df = bridge.get_candles(symbol, timeframe=tf) 
             except Exception as e:
@@ -192,26 +191,63 @@ class TelegramBot:
                 if not trades: return "🚫 No Open Positions."
                 msg = f"📊 **Active Trades ({len(trades)})**\n"
                 for t in trades:
+                    current_pnl = "N/A" # Would need live tick to calc
                     msg += f"• {t['symbol']} ({t['direction']}) @ {t['entry_price']}\n"
                 return msg
             return "Positions: None"
 
         elif cmd == '/history':
-            return "📜 **Trade History** (Last 5)\n• EURUSD Long (+2.1R)\n• BTCUSD Short (-1.0R)\n(Stub: Connect to DB)"
+            # Stub: Real implementation needs a history list in state.json
+            return "📜 **Trade History** (Last 5)\n• EURUSD Long (+2.1R)\n• BTCUSD Short (-1.0R)\n(History Persistence Pending)"
 
         elif cmd == '/close':
             if not args: return "⚠️ Usage: /close [SYMBOL]"
             symbol = args.upper()
-            # Logic to close specific symbol would iterate active trades in context['state_manager']
-            # and call bridge.close_position(ticket)
-            return f"⚠️ Force Closing {symbol}... (Implement bridge call here)"
+            
+            if context and 'state_manager' in context:
+                active = context['state_manager'].state.get('active_trades', [])
+                target_trades = [t for t in active if t['symbol'] == symbol]
+                
+                if not target_trades:
+                    return f"⚠️ No open positions found for {symbol}."
+                
+                closed_count = 0
+                for trade in target_trades:
+                    # Determine bridge
+                    bridge = context['bybit_bridge'] if 'bybit' in str(trade.get('ticket')) else context['mt5_bridge']
+                    # Best effort bridge select
+                    if symbol in context['session_manager'].crypto_symbols:
+                         bridge = context['bybit_bridge']
+                    else:
+                         bridge = context['mt5_bridge']
+                         
+                    bridge.close_position(trade['ticket'], pct=1.0)
+                    active.remove(trade)
+                    closed_count += 1
+                
+                context['state_manager'].save_state()
+                return f"✅ Closed {closed_count} positions for {symbol}."
+            return "⚠️ State Manager not available."
 
         elif cmd == '/panic':
             return "🚨 **KILL SWITCH**\nAre you sure? Type 'YES_Sure' to confirm."
             
         elif cmd == 'yes_sure':
-            # Logic to iterate ALL active trades and close
-            return "💀 **PANIC EXECUTED**\nAll positions closed. System Halted."
+            if context and 'state_manager' in context:
+                active = list(context['state_manager'].state.get('active_trades', []))
+                count = 0
+                for trade in active:
+                    symbol = trade['symbol']
+                    bridge = context['bybit_bridge'] if symbol in context['session_manager'].crypto_symbols else context['mt5_bridge']
+                    bridge.close_position(trade['ticket'], pct=1.0)
+                    count += 1
+                
+                # Clear State
+                context['state_manager'].state['active_trades'] = []
+                context['state_manager'].state['system_status'] = 'halted'
+                context['state_manager'].save_state()
+                return f"💀 **PANIC EXECUTED**\n{count} positions closed. System HALTED."
+            return "⚠️ Panic Failed: Context missing."
 
         # --- Strategy Control ---
         elif cmd == '/pause':
@@ -228,11 +264,26 @@ class TelegramBot:
             
         elif cmd == '/trail':
              # Toggle logic in state
-             return f"🧗 **Trailing Stop**\nSet to: {args.upper() if args else 'Toggle'} (Stub)"
+             if not args: return "Usage: /trail [ON/OFF]"
+             mode = args.lower()
+             enabled = True if mode in ['on', 'true'] else False
+             
+             if context:
+                 if 'mt5_trade_manager' in context: context['mt5_trade_manager'].set_trailing(enabled)
+                 if 'bybit_trade_manager' in context: context['bybit_trade_manager'].set_trailing(enabled)
+                 return f"🧗 **Trailing Stop** set to: {enabled}"
+             return "⚠️ Helpers not available."
 
         # --- Risk & Setup ---
         elif cmd == '/risk':
-            return f"⚖️ **Risk Adjustment**\nRisk set to {args}% (Stub)."
+            if not args or not context or 'position_sizer' not in context: 
+                return "⚠️ Usage: /risk [0.5 - 2.0]"
+            try:
+                val = float(args)
+                context['position_sizer'].default_risk_pct = val
+                return f"⚖️ **Risk Adjusted**\nNew Risk Per Trade: {val}%"
+            except:
+                return "⚠️ Invalid number."
             
         elif cmd == '/maxloss':
             if context and 'risk_manager' in context and args:
@@ -244,7 +295,14 @@ class TelegramBot:
             return "Usage: /maxloss [AMOUNT]"
 
         elif cmd == '/news':
-             return "📅 **News Calendar**\nNo high impact events detected within 30 mins."
+            if context and 'risk_manager' in context:
+                events = context['risk_manager'].high_impact_events
+                if not events: return "📅 No High Impact News cached."
+                msg = "📅 **Upcoming News**\n"
+                for e in events[:5]:
+                    msg += f"• {e['title']} @ {e['time'].strftime('%H:%M')}\n"
+                return msg
+            return "📅 News module unavailable."
 
         elif cmd == '/newsmode':
             if context and 'risk_manager' in context and args:
@@ -257,10 +315,33 @@ class TelegramBot:
 
         # --- Testing ---
         elif cmd == '/test':
-             return f"🧪 **Test Mode**: Force entering {args}... (Stub)"
+             # Force MARKET entry
+             if not args: return "Usage: /test [SYMBOL]"
+             symbol = args.upper()
+             
+             # Determine bridge
+             bridge = None
+             if context and 'session_manager' in context:
+                 bridge = context['bybit_bridge'] if symbol in context['session_manager'].crypto_symbols else context['mt5_bridge']
+            
+             if not bridge: return "Bridge not found."
+             
+             # Execute 0.01 lot test
+             # Simplified: Market Buy
+             if 'bybit' in str(type(bridge)).lower():
+                 bridge.place_order(symbol, 'Buy', 'Market', 0.001) # Min qty logic needed?
+             else:
+                 # MT5 Market
+                 # Note: place_limit_order is implemented, need place_market
+                 # For now, just Limit at current ask?
+                 tick = bridge.get_tick(symbol)
+                 if tick:
+                     bridge.place_limit_order(symbol, 'buy_limit', tick['ask'], tick['ask']-0.00100, tick['ask']+0.00200, 0.01)
+                     
+             return f"🧪 **Test Entry Sent**: {symbol} (Check platform)"
              
         elif cmd == '/canceltest':
-             return "❌ Test trade canceled."
+             return "❌ Test trade management not linked to specific ID yet."
              
         elif cmd == '/strategy':
             return "📘 **A+ Operator Strategy**\n1. HTF Sweep (1H/4H)\n2. LTF MSS (5M)\n3. FVG Entry (Premium/Discount)"

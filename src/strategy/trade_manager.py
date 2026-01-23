@@ -3,10 +3,20 @@ from src.strategy.smc_logic import SMCLogic
 logger = logging.getLogger(__name__)
 
 class TradeManager:
-    def __init__(self, bridge, state_manager, smc_logic=None):
+    def __init__(self, bridge, state_manager, smc_logic=None, telegram_bot=None):
         self.bridge = bridge
         self.state_manager = state_manager
         self.smc = smc_logic if smc_logic else SMCLogic()
+        self.bot = telegram_bot
+        
+        # Load Preferences
+        self.trailing_enabled = self.state_manager.state.get('trailing_enabled', True)
+
+    def set_trailing(self, enabled: bool):
+        self.trailing_enabled = enabled
+        self.state_manager.state['trailing_enabled'] = enabled
+        self.state_manager.save_state()
+        return enabled
 
     def manage_active_trade(self, trade, current_price, ltf_candles=None):
         """
@@ -105,7 +115,7 @@ class TradeManager:
             self.state_manager.save_state()
             
         # 3. Trailing SL (Post 2.0R)
-        if current_r >= 2.0 and ltf_candles is not None and not ltf_candles.empty:
+        if current_r >= 2.0 and ltf_candles is not None and not ltf_candles.empty and self.trailing_enabled:
             # Trailing Logic: Trail behind the extreme of the last 3 closed candles
             # This is a robust way to trail market structure without complex swing detection
             
@@ -132,5 +142,9 @@ class TradeManager:
                  if self.bridge.modify_order(trade['ticket'], sl=new_trail_sl):
                      trade['sl_price'] = new_trail_sl
                      self.state_manager.save_state()
+                     if self.bot:
+                         self.bot.send_message(f"🧗 **Trailing SL**\n{symbol} Moved to `{new_trail_sl:.5f}` (Locked Profit)")
+
+        return trade
 
         return trade
