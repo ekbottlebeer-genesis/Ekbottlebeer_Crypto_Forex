@@ -8,53 +8,54 @@ logger = logging.getLogger(__name__)
 
 class BybitBridge:
     def __init__(self):
+        # 1. READ & CLEAN ENV VARS
         api_key = os.getenv("BYBIT_API_KEY")
         api_secret = os.getenv("BYBIT_API_SECRET")
         
-        # FORCE RE-LOAD check for BYBIT_DEMO
-        # Use strip() to handle any trailing spaces in .env
-        env_demo = str(os.getenv("BYBIT_DEMO", "False")).strip().lower()
-        demo_trading = (env_demo == "true")
+        # Use simple string checks
+        env_demo = str(os.getenv("BYBIT_DEMO", "False")).upper()
+        env_testnet = str(os.getenv("BYBIT_TESTNET", "False")).upper()
         
-        env_testnet = str(os.getenv("BYBIT_TESTNET", "False")).strip().lower()
-        testnet = (env_testnet == "true")
+        self.demo_trading = (env_demo == "TRUE")
+        self.testnet = (env_testnet == "TRUE")
+        
+        # LOGGING (Crucial for Debugging)
+        logger.info(f"🔧 BRIDGE CONFIG: DEMO={self.demo_trading} | TESTNET={self.testnet}")
 
-        # CRITICAL OVERRIDE: If Demo is True, Testnet MUST be False
-        if demo_trading:
-            testnet = False
-            logger.info("🛠 Bybit Mode: DEMO TRADING (api-demo.bybit.com)")
-        elif testnet:
-            logger.info("🛠 Bybit Mode: TESTNET")
+        # CRITICAL OVERRIDE: If Demo is True, Testnet param in Pybit must be False (it refers to classic testnet)
+        # We explicitly control the domain below.
+        if self.demo_trading:
+            pybit_testnet_arg = False 
+            target_domain = "api-demo.bybit.com"
+            logger.info(f"🛠 Bybit Mode: DEMO TRADING (Target: {target_domain})")
+        elif self.testnet:
+            pybit_testnet_arg = True
+            target_domain = "api-testnet.bybit.com" 
+            logger.info(f"🛠 Bybit Mode: TESTNET CLASSIC (Target: {target_domain})")
         else:
-            logger.info("🛠 Bybit Mode: LIVE MAINNET")
+            pybit_testnet_arg = False
+            target_domain = "api.bybit.com"
+            logger.info(f"🛠 Bybit Mode: LIVE MAINNET (Target: {target_domain})")
         
         self.session = None
         self._instruments_cache = {} 
+        
         if api_key and api_secret:
             try:
-                # Construct args
-                kwargs = {
-                    'testnet': testnet,
-                    'api_key': api_key,
-                    'api_secret': api_secret,
-                    'demo': demo_trading
-                }
-                
+                # Initialize Pybit HTTP
                 self.session = HTTP(
-                    testnet=testnet,
+                    testnet=pybit_testnet_arg,
                     api_key=api_key,
                     api_secret=api_secret,
-                    demo=demo_trading,
                 )
                 
-                # FORCE DEMO DOMAIN if DEMO is True (Pybit sometimes defaults to main/testnet logic)
-                # Bybit Demo is on "api-demo.bybit.com" which is distinct strictly from testnet.bybit.com
-                if demo_trading:
-                    self.session.domain = "api-demo.bybit.com" 
+                # FORCE DOMAIN OVERRIDE
+                # This ensures we are hitting exactly where we expect, bypassing internal defaults
+                self.session.domain = target_domain
                 
-                logger.info(f"Bybit Session Initialized successfully.")
+                logger.info(f"✅ Bybit Session Initialized. Connected to: {self.session.domain}")
             except Exception as e:
-                logger.error(f"Failed to initialize Bybit session: {e}")
+                logger.error(f"❌ Failed to initialize Bybit session: {e}")
 
     def get_instrument_info(self, symbol):
         """

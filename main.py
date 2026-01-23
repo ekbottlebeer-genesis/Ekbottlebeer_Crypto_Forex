@@ -32,10 +32,17 @@ def process_telegram_updates(bot, last_id, context):
                     command = parts[0]
                     args = parts[1] if len(parts) > 1 else ""
                     
-                    resp = bot.handle_command(command, args, context)
-                    if resp:
+                    try:
+                        resp = bot.handle_command(command, args, context)
+                        if resp:
+                            chat_id = update['message']['chat']['id']
+                            bot.send_message(resp, chat_id=chat_id)
+                    except Exception as cmd_error:
+                        # Report Command Failure to User
+                        logger.error(f"Command '{command}' crashed: {cmd_error}", exc_info=True)
                         chat_id = update['message']['chat']['id']
-                        bot.send_message(resp, chat_id=chat_id)
+                        bot.send_message(f"❌ **COMMAND FAILED**\nError: `{str(cmd_error)}`", chat_id=chat_id)
+
         return last_id
     except Exception as e:
         logger.error(f"Telegram Update Error: {e}", exc_info=True)
