@@ -46,12 +46,15 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
 - **Channels**:
   - **Control Room**: Your main bot chat for logs and commands.
   - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts.
-- **Commands**:
-  - `/status`: Check System Heartbeat.
-  - `/newsmode [on/off]`: Toggle the News Filter.
-  - `/chart [SYMBOL]`: Request a visual analysis chart.
-  - `/panic`: **KILL SWITCH**. Closes all positions immediately.
-  - `/maxloss [AMOUNT]`: Set a session loss limit on the fly.
+- **Commands** (Now available in Telegram Menu):
+  - `/scan`: **Market Pulse**. Shows active sessions, watchlist size, and active trade count.
+  - `/status`: **System Health**. Checks bridge connections and wallet balances.
+  - `/positions`: **Portfolio View**. List all currently open positions with PnL.
+  - `/chart [SYMBOL]`: **Visualizer**. Generates and sends a snapshot chart with SMC annotations.
+  - `/newsmode [on/off]`: **News Toggle**. Manually enable/disable the Red Folder filter.
+  - `/maxloss [AMOUNT]`: **Risk Control**. Set a hard session loss limit (e.g., `/maxloss 500`).
+  - `/panic`: 💀 **KILL SWITCH**. Emergencies only. Closes ALL positions across both brokers.
+  - `/help`: Show this command list.
 
 ---
 

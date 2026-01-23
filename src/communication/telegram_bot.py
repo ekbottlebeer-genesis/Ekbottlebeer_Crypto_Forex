@@ -11,6 +11,31 @@ class TelegramBot:
         self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
         self.signal_channel_id = os.getenv("TELEGRAM_SIGNAL_CHANNEL_ID")
         self.base_url = f"https://api.telegram.org/bot{self.token}"
+        
+        # Auto-configure Bot Menu on startup
+        self.set_bot_menu()
+
+    def set_bot_menu(self):
+        """Configures the Telegram Bot Menu button."""
+        if not self.token: return
+        
+        commands = [
+            {"command": "scan", "description": "🔍 Market Pulse (Sessions/Active)"},
+            {"command": "status", "description": "💓 System Integrity Check"},
+            {"command": "positions", "description": "📊 List Open Positions"},
+            {"command": "chart", "description": "📷 Request Chart [SYMBOL]"},
+            {"command": "newsmode", "description": "📰 Toggle News Filter [ON/OFF]"},
+            {"command": "maxloss", "description": "🛑 Set Max Session Loss [$]"},
+            {"command": "panic", "description": "💀 KILL SWITCH (Close All)"},
+            {"command": "help", "description": "❓ Show Help Message"}
+        ]
+        
+        try:
+            url = f"{self.base_url}/setMyCommands"
+            requests.post(url, json={"commands": commands})
+            # logger.info("Telegram Bot Menu updated.") # silent success
+        except Exception as e:
+            logger.warning(f"Failed to set Telegram Menu: {e}")
 
     def send_message(self, message, chat_id=None):
         """
@@ -42,11 +67,6 @@ class TelegramBot:
             self.send_message(message, chat_id=self.signal_channel_id)
         else:
             logger.warning("Signal Channel ID not set. Skipping signal broadcast.")
-            response = requests.post(url, json=payload)
-            response.raise_for_status()
-            logger.info(f"Telegram message sent: {message[:20]}...")
-        except Exception as e:
-            logger.error(f"Failed to send Telegram message: {e}")
 
     def send_photo(self, photo_path, caption=""):
         """Sends a photo to the configured chat."""
