@@ -134,7 +134,7 @@ class SMCLogic:
                                 'desc': "HTF Low Sweep (Refined)"
                             }
              
-        return {'swept': False}
+        return {'swept': False, 'htf_high': period_high, 'htf_low': period_low}
 
     def detect_mss(self, ltf_candles: pd.DataFrame, bias_direction, sweep_time):
         current_time = ltf_candles.iloc[-1]['time']
@@ -150,30 +150,36 @@ class SMCLogic:
              if last_swing_highs.empty: return {'mss': False}
              
              target_swing = last_swing_highs.iloc[-1]
-             if current_candle['close'] > target_swing['swing_high_val']:
-                 # print(f"DEBUG: MSS Long Confirmed at {current_time} breaking {target_swing['swing_high_val']}")
+             target_level = target_swing['swing_high_val']
+             
+             if current_candle['close'] > target_level:
                  return {
                      'mss': True, 
                      'time': current_time,
-                     'level': target_swing['swing_high_val'],
+                     'level': target_level,
                      'leg_low': ltf_candles.tail(12)['low'].min(), 
                      'leg_high': current_candle['high']
                  }
+             else:
+                 return {'mss': False, 'trigger_level': target_level, 'type': 'above'}
 
         elif bias_direction == 'buy_side': # Short Bias
              last_swing_lows = ltf_candles[ltf_candles['is_swing_low'] == True].tail(3)
              if last_swing_lows.empty: return {'mss': False}
              
              target_swing = last_swing_lows.iloc[-1]
-             if current_candle['close'] < target_swing['swing_low_val']:
-                 # print(f"DEBUG: MSS Short Confirmed at {current_time} breaking {target_swing['swing_low_val']}")
+             target_level = target_swing['swing_low_val']
+             
+             if current_candle['close'] < target_level:
                  return {
                      'mss': True, 
                      'time': current_time,
-                     'level': target_swing['swing_low_val'],
+                     'level': target_level,
                      'leg_high': ltf_candles.tail(12)['high'].max(), 
                      'leg_low': current_candle['low']
                  }
+             else:
+                 return {'mss': False, 'trigger_level': target_level, 'type': 'below'}
                  
         return {'mss': False}
 

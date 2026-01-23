@@ -306,6 +306,7 @@ def main():
                         except: pass
                     
                     # Persist for Dashboard
+                    waiting_on = f"Sweep High: {sweep.get('htf_high', 0):.5f} / Low: {sweep.get('htf_low', 0):.5f}"
                     state_manager.update_scan_data(symbol, {
                         'bias': bias, 'rsi': rsi_val, 'status': state_desc, 'waiting_on': waiting_on, 'checkpoint': 'SWEEP'
                     })
@@ -331,6 +332,16 @@ def main():
 
                     mss = smc.detect_mss(ltf_candles, sweep['side'], sweep['sweep_candle_time'])
                     
+                    if not mss.get('mss', False) and 'trigger_level' in mss:
+                         # Dash: Show the exact price we are waiting for
+                         state_manager.update_scan_data(symbol, {
+                             'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
+                             'rsi': 50.0,
+                             'status': "Sweep Confirmed",
+                             'waiting_on': f"M5 Close {mss['type']} {mss['trigger_level']:.5f}",
+                             'checkpoint': 'MSS'
+                         })
+                    
                     if mss.get('mss', False):
                         logger.info(f"⚡ MSS Confirmed on {symbol} @ {mss['level']}")
                         
@@ -350,16 +361,27 @@ def main():
                         # Filter Logic (Matches Backtest)
                         if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias
                              if not (30 <= current_rsi <= 60):
-                                 # logger.debug(f"Skipping {symbol} Short. RSI {current_rsi:.1f} Invalid.")
-                                 continue
+                                rsi_msg = f"RSI {current_rsi:.1f} (Need 30-60)"
+                                state_manager.update_scan_data(symbol, {
+                                    'bias': 'BEARISH', 'rsi': current_rsi, 'status': "Wait RSI", 'waiting_on': rsi_msg, 'checkpoint': 'FVG'
+                                })
+                                continue
                         else: # We swept lows -> Bullish Bias
                              if not (40 <= current_rsi <= 70):
-                                 # logger.debug(f"Skipping {symbol} Long. RSI {current_rsi:.1f} Invalid.")
-                                 continue
+                                rsi_msg = f"RSI {current_rsi:.1f} (Need 40-70)"
+                                state_manager.update_scan_data(symbol, {
+                                    'bias': 'BULLISH', 'rsi': current_rsi, 'status': "Wait RSI", 'waiting_on': rsi_msg, 'checkpoint': 'FVG'
+                                })
+                                continue
                         
                         # 5. Find FVG Entry (Premium/Discount Linked)
                         direction_bias = 'bearish' if sweep['side'] == 'buy_side' else 'bullish'
                         fvgs = smc.find_fvg(ltf_candles, direction_bias, mss['leg_high'], mss['leg_low'])
+                        
+                        if not fvgs:
+                            state_manager.update_scan_data(symbol, {
+                                'bias': direction_bias.upper(), 'rsi': current_rsi, 'status': "Wait FVG", 'waiting_on': "Formation in Prem/Disc", 'checkpoint': 'FVG'
+                            })
                         
                         if fvgs:
                              fvg = fvgs[0]
