@@ -55,7 +55,8 @@ class Visualizer:
                 # Plot Sweeps (Horizontal Lines)
                 if 'sweeps' in zones:
                     for sweep in zones['sweeps']:
-                        price = sweep['price']
+                        price = sweep.get('price', sweep.get('level'))
+                        if price is None: continue
                         color = 'yellow'
                         chart.horizontal_line(price, color=color, width=2, style='solid', text=f"Sweep {price}")
 

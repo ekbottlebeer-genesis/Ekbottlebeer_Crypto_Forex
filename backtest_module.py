@@ -262,7 +262,10 @@ class BacktestEngine:
             # We take last 200 M5s
             ltf_slice = self.df_m5[valid_m5_mask].tail(200).reset_index()
             
-            if len(htf_slice) < 50 or len(ltf_slice) < 50:
+            if i % 10000 == 0:
+                 print(f"DEBUG: Loop {i} | Time {current_time} | HTF Slice: {len(htf_slice)} | LTF Slice: {len(ltf_slice)}")
+            
+            if len(htf_slice) < 20 or len(ltf_slice) < 50:
                 continue
                 
             # --- BLOCK 2.1: HTF Sweep ---
@@ -327,9 +330,9 @@ class BacktestEngine:
         # AUDIT IMAGE
         # Construct zones dict for visualizer
         zones = {
-            'sweep': sweep,
-            'mss': mss,
-            'fvg': fvg,
+            'sweeps': [sweep],
+            'mss': [mss],
+            'fvg': [fvg],
             'trade': {'entry': entry, 'sl': sl, 'tp': tp}
         }
         # We need a DataFrame to plot. Visualizer needs 'time', 'open', 'high'... 
