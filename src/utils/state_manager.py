@@ -30,6 +30,7 @@ class StateManager:
             "current_session": "waiting",
             "active_sweeps": {}, # {symbol: {level: 1.23, side: 'buy', timestamp: ...}}
             "active_trades": [], # {symbol: {ticket: 123, entry: ..., sl: ..., tp: ...}}
+            "last_scan_data": {}, # {symbol: {bias: ..., rsi: ..., status: ..., waiting_on: ...}}
             "watchlists": {
                 "ASIA": ["USDJPY", "AUDUSD"],
                 "LONDON": ["GBPUSD", "EURUSD", "XAUUSD"],
@@ -44,6 +45,13 @@ class StateManager:
                 json.dump(self.state, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to save state: {e}")
+
+    def update_scan_data(self, symbol, data):
+        """Updates the dashboard status for a symbol."""
+        if 'last_scan_data' not in self.state:
+            self.state['last_scan_data'] = {}
+        self.state['last_scan_data'][symbol] = data
+        self.save_state()
 
     def update_sweep(self, symbol, sweep_data):
         """Updates detected HTF sweep for a symbol."""

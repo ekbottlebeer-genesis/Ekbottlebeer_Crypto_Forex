@@ -177,10 +177,28 @@ class TelegramBot:
         
         # --- Operational ---
         if cmd == '/scan':
-            if context and 'session_manager' in context:
-                info = context['session_manager'].get_current_session_info()
-                return f"🔍 **Market Pulse**\nSessions: {', '.join(info['sessions'])}\nWatchlist: {len(info['watchlist'])}\nBias: Mixed (Scan Active)"
-            return "Scanning markets..."
+            if context and 'state_manager' in context:
+                sm = context['state_manager']
+                scan_data = sm.state.get('last_scan_data', {})
+                if not scan_data:
+                    return "🔍 **Market Pulse**: Scanning just started. Please wait 10s and retry."
+                
+                msg = "🔭 **Ekbottlebeer Market Dashboard**\n\n"
+                
+                # Split by Asset Class if possible
+                for symbol, data in scan_data.items():
+                    bias_emoji = "🟢" if data['bias'] == 'BULLISH' else "🔴" if data['bias'] == 'BEARISH' else "⚪️"
+                    rsi_str = f"{data['rsi']:.1f}"
+                    status = data['status']
+                    waiting = data['waiting_on']
+                    
+                    msg += f"{bias_emoji} **{symbol}**\n"
+                    msg += f"┣ Bias: {data['bias']} (RSI: {rsi_str})\n"
+                    msg += f"┣ Progress: `{status}`\n"
+                    msg += f"┗ Waiting: _{waiting}_\n\n"
+                
+                return msg
+            return "🔍 Scanning markets..."
             
         elif cmd in ['/status', '/check']:
             mt5_bal = context['mt5_bridge'].get_balance() if context and 'mt5_bridge' in context else "N/A"

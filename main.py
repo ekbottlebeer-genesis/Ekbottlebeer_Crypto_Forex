@@ -277,69 +277,78 @@ def main():
                 
                 if not sweep['swept']:
                     # HUD v2: Detailed Status (RSI + Bias) for Neutral Assets
-                    # We need LTF data for RSI.
-                     # MT5: 5m=5, Bybit: '5'
                     ltf_tf_scan = '5' if bridge == bybit_bridge else 5
-                    # Optimize: Only 50 candles needed for RSI(14)
                     ltf_scan_data = bridge.get_candles(symbol, timeframe=ltf_tf_scan, num_candles=50)
                     
                     status_line = f"⏩ [NEUTRAL] Scanning..."
-                    if ltf_scan_data is not None and not ltf_scan_data.empty:
-                         try:
-                             # Calculate RSI
-                             ltf_scan_data['rsi'] = smc.calculate_rsi(ltf_scan_data['close'], 14)
-                             curr_rsi = ltf_scan_data.iloc[-1]['rsi']
-                             
-                             # Determine Bias/State
-                             bias = "NEUTRAL"
-                             state_desc = "Choppy"
-                             
-                             if curr_rsi > 60: 
-                                 bias = "BULLISH"
-                                 state_desc = "Momentum Up"
-                             elif curr_rsi < 40: 
-                                 bias = "BEARISH"
-                                 state_desc = "Momentum Down"
-                             
-                             # Check for 'Zones' (Near OB/OS)
-                             if curr_rsi > 70: state_desc = "🔥 OVERBOUGHT!"
-                             if curr_rsi < 30: state_desc = "🧊 OVERSOLD!"
-                             
-                             status_line = f"{bias:<7} | RSI: {curr_rsi:>4.1f} | {state_desc}"
-                         except:
-                             pass
+                    rsi_val = 50.0
+                    bias = "NEUTRAL"
+                    state_desc = "Wait Sweep"
+                    waiting_on = "HTF Sweep"
                     
+                    if ltf_scan_data is not None and not ltf_scan_data.empty:
+                        try:
+                            ltf_scan_data['rsi'] = smc.calculate_rsi(ltf_scan_data['close'], 14)
+                            rsi_val = ltf_scan_data.iloc[-1]['rsi']
+                            if rsi_val > 60: 
+                                bias = "BULLISH"
+                                state_desc = "Momentum Up"
+                            elif rsi_val < 40: 
+                                bias = "BEARISH"
+                                state_desc = "Momentum Down"
+                            if rsi_val > 70: state_desc = "🔥 OVERBOUGHT!"
+                            if rsi_val < 30: state_desc = "🧊 OVERSOLD!"
+                            status_line = f"{bias:<7} | RSI: {rsi_val:>4.1f} | {state_desc}"
+                        except: pass
+                    
+                    # Persist for Dashboard
+                    state_manager.update_scan_data(symbol, {
+                        'bias': bias, 'rsi': rsi_val, 'status': state_desc, 'waiting_on': waiting_on, 'checkpoint': 'SWEEP'
+                    })
                     print(f"   📊 {symbol:<10} | {status_line}")
                 
                 if sweep['swept']:
-                    logger.info(f"🚨 HTF Sweep Detected on {symbol}: {sweep['desc']} @ {sweep['level']}")
+                    side_name = "BEARISH (Short Setup)" if sweep['side'] == 'buy_side' else "BULLISH (Long Setup)"
+                    logger.info(f"🚨 HTF Sweep [{side_name}] Detected on {symbol} @ {sweep['level']}")
                     
+                    # Dash: Update state for sweep detected
+                    state_manager.update_scan_data(symbol, {
+                        'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
+                        'rsi': 50.0, # Placeholder until LTF check
+                        'status': f"Sweep Detected ({sweep['side']})",
+                        'waiting_on': "LTF MSS Confirm",
+                        'checkpoint': 'MSS'
+                    })
+
                     # 4. Drop to LTF (5m) for MSS
-                    # MT5: 5m=5, Bybit: '5'
                     ltf_tf = '5' if bridge == bybit_bridge else 5
                     ltf_candles = bridge.get_candles(symbol, timeframe=ltf_tf, num_candles=200)
-                    
-                    if ltf_candles is None or ltf_candles.empty:
-                        continue
+                    if ltf_candles is None or ltf_candles.empty: continue
 
                     mss = smc.detect_mss(ltf_candles, sweep['side'], sweep['sweep_candle_time'])
                     
                     if mss.get('mss', False):
                         logger.info(f"⚡ MSS Confirmed on {symbol} @ {mss['level']}")
                         
-                        # --- 4.5 RSI Confluence (ADDED) ---
-                        # We have ltf_candles. Calculate RSI.
+                        # Calculate RSI for confluence check
                         ltf_candles['rsi'] = smc.calculate_rsi(ltf_candles['close'], 14)
                         current_rsi = ltf_candles.iloc[-1]['rsi']
+
+                        # Dash: Update status for FVG hunting
+                        state_manager.update_scan_data(symbol, {
+                            'bias': 'BULLISH' if sweep['side'] == 'sell_side' else 'BEARISH',
+                            'rsi': current_rsi,
+                            'status': "MSS Confirmed ✅",
+                            'waiting_on': "FVG + RSI Confluence",
+                            'checkpoint': 'FVG'
+                        })
                         
                         # Filter Logic (Matches Backtest)
                         if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias
-                             # Short: RSI < 60 (Momenum down) AND RSI > 30 (Not Oversold)
                              if not (30 <= current_rsi <= 60):
                                  # logger.debug(f"Skipping {symbol} Short. RSI {current_rsi:.1f} Invalid.")
                                  continue
                         else: # We swept lows -> Bullish Bias
-                             # Long: RSI > 40 (Momentum up) AND RSI < 70 (Not Overbought)
                              if not (40 <= current_rsi <= 70):
                                  # logger.debug(f"Skipping {symbol} Long. RSI {current_rsi:.1f} Invalid.")
                                  continue
@@ -347,6 +356,19 @@ def main():
                         # 5. Find FVG Entry (Premium/Discount Linked)
                         direction_bias = 'bearish' if sweep['side'] == 'buy_side' else 'bullish'
                         fvgs = smc.find_fvg(ltf_candles, direction_bias, mss['leg_high'], mss['leg_low'])
+                        
+                        if fvgs:
+                             fvg = fvgs[0]
+                             logger.info(f"💎 A+ SETUP: {symbol} {direction_bias.upper()} FVG @ {fvg['entry']}")
+                             
+                             # Dash: Update status for execution
+                             state_manager.update_scan_data(symbol, {
+                                 'bias': direction_bias.upper(),
+                                 'rsi': current_rsi,
+                                 'status': "💎 FVG FOUND",
+                                 'waiting_on': "Execution",
+                                 'checkpoint': 'EXEC'
+                             })
                         
                         if fvgs:
                             setup = fvgs[0] # Take the most recent/valid FVG
