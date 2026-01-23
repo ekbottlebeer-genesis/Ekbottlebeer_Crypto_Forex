@@ -63,8 +63,18 @@ class Visualizer:
                 if 'mss' in zones:
                     for mss in zones['mss']:
                         # Add a marker on the MSS candle
-                        mss_time = mss['time']
+                        mss_time = mss['time'] # timestamp or string
                         chart.marker(time=mss_time, position='above', shape='arrow_down', color='white', text='MSS')
+
+                # Plot Trade Levels (Entry, SL, TP)
+                if 'trade' in zones:
+                    t = zones['trade']
+                    if 'entry' in t:
+                        chart.horizontal_line(t['entry'], color='blue', width=2, style='solid', text=f"Entry: {t['entry']}")
+                    if 'sl' in t:
+                        chart.horizontal_line(t['sl'], color='red', width=2, style='solid', text=f"SL: {t['sl']}")
+                    if 'tp' in t:
+                        chart.horizontal_line(t['tp'], color='green', width=2, style='solid', text=f"TP: {t['tp']}")
 
             # 4. Screenshot Logic (Headless)
             # We need to save the chart as static HTML first?

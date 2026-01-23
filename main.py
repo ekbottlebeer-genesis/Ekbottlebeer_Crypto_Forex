@@ -264,6 +264,28 @@ def main():
                             
                             bot.send_signal(signal_msg)
                             
+                            # --- 7. AUTO-EVIDENCE: Generate & Send Chart ---
+                            try:
+                                evidence_zones = {
+                                    'sweeps': [{'price': sweep['level'], 'desc': sweep['desc']}],
+                                    'mss': [{'time': ltf_candles.iloc[-1]['time'], 'price': mss['level']}],
+                                    'fvg': [setup],
+                                    'trade': {
+                                        'entry': entry_price,
+                                        'sl': sl_price,
+                                        'tp': tp_price
+                                    }
+                                }
+                                # Generate Chart (Synchronous)
+                                evidence_path = visualizer.generate_chart(ltf_candles, symbol, zones=evidence_zones, filename=f"evidence_{symbol}_{int(time.time())}.png")
+                                
+                                if evidence_path and os.path.exists(evidence_path):
+                                    caption = f"📸 **Trade Evidence**: {symbol} {direction_bias.upper()}\nEntry: {entry_price} | SL: {sl_price} | TP: {tp_price}"
+                                    bot.send_photo(evidence_path, caption=caption)
+                                    # cleanup? os.remove(evidence_path) # Optional, keep for debug for now
+                            except Exception as e_vis:
+                                logger.error(f"Failed to generate auto-evidence chart: {e_vis}")
+
                             if position_sizer.check_risk_reward(entry_price, sl_price, tp_price):
                                 units = position_sizer.calculate_position_size(balance, entry_price, sl_price, symbol)
                                 
