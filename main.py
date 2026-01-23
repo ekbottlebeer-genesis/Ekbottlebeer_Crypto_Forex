@@ -20,13 +20,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_bot_version():
+    """Retrieves the current version (Git Short Hash)."""
+    try:
+        # Try retrieving git hash
+        import subprocess
+        ver = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip().decode('utf-8')
+        return f"v1.0.{ver}"
+    except:
+        return "v1.0.0 (Dev)"
+
 def main():
     """
     Main entry point for the Ekbottlebeer A+ Operator.
     """
     # 1. Load Secrets
     load_dotenv()
-    logger.info("Initializing The Ekbottlebeer A+ Operator...")
+    
+    VERSION = get_bot_version()
+    
+    logging.info(f"Initializing The Ekbottlebeer A+ Operator [{VERSION}]...")
+    print(f"--> BOOTING VERSION: {VERSION}") # Console visibility
 
     # 2. Check for critical environment variables
     chk_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
@@ -44,7 +58,7 @@ def main():
     visualizer = Visualizer()
     position_sizer = PositionSizer()
 
-    bot.send_message("🚀 System Initializing: The Ekbottlebeer A+ Operator")
+    bot.send_message(f"🚀 System Initializing: The Ekbottlebeer A+ Operator\n📦 **Version**: `{VERSION}`")
 
     # Connect Bridges
     mt5_bridge = MT5Bridge()
