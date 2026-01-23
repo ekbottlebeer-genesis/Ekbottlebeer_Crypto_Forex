@@ -383,10 +383,13 @@ class TelegramBot:
                  res = bridge.place_order(symbol, 'Buy', 'Market', test_vol)
                  if not res: return f"❌ **Test Failed**: Order rejected by Bybit. Check if {symbol} is valid or margin is low."
              else:
+             else:
+                 # MT5: Use Market Execution for TEST to avoid Limit Price logic errors
                  tick = bridge.get_tick(symbol)
                  if tick:
-                     res = bridge.place_limit_order(symbol, 'buy_limit', tick['ask'], tick['ask']-0.00100, tick['ask']+0.00200, test_vol)
-                     if not res: return f"❌ **Test Failed**: MT5 rejected the order."
+                     # Use 'market_buy' which maps to ORDER_TYPE_BUY
+                     res = bridge.place_limit_order(symbol, 'market_buy', tick['ask'], 0.0, 0.0, test_vol, comment="TEST ENTRY")
+                     if not res: return f"❌ **Test Failed**: MT5 rejected Market Order (Ticket: None)."
                  else:
                      return f"❌ **Test Failed**: Could not get tick from MT5."
                       
