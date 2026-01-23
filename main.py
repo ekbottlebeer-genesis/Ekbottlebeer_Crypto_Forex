@@ -478,12 +478,7 @@ def main():
                 last_heartbeat = current_time
                 state_manager.save_state()
             
-                    # Add to list instead of print
-                    row_str = f"{symbol:<8} | {status_line}"
-                    if symbol in session_manager.crypto_symbols:
-                        bybit_rows.append(row_str)
-                    else:
-                        pepper_rows.append(row_str)
+
 
             # --- RENDERING PHASE ---
             os.system('cls' if os.name == 'nt' else 'clear')
