@@ -13,7 +13,7 @@ class Visualizer:
         if not os.path.exists(export_dir):
             os.makedirs(export_dir)
 
-    async def generate_chart(self, df, symbol, zones=None, filename="chart.png"):
+    def generate_chart(self, df, symbol, zones=None, filename="chart.png"):
         """
         Generates a lightweight-chart, saves it as HTML, and uses Playwright to screenshot it.
         
