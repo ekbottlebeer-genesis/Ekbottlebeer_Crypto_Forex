@@ -16,6 +16,30 @@ from src.strategy.smc_logic import SMCLogic
 from src.risk.guardrails import RiskGuardrails
 from src.utils.visualizer import Visualizer
 
+# --- HELPER: Telegram Command Processing ---
+def process_telegram_updates(bot, last_id, context):
+    """Checks for and executes Telegram commands (High Responsive)"""
+    try:
+        # Use short timeout for updates inside scan loop
+        updates = bot.get_updates(offset=last_id + 1, timeout=0.1) 
+        if updates:
+            for update in updates:
+                last_id = update['update_id']
+                if 'message' in update and 'text' in update['message']:
+                    text = update['message']['text']
+                    parts = text.split(' ', 1)
+                    command = parts[0]
+                    args = parts[1] if len(parts) > 1 else ""
+                    
+                    resp = bot.handle_command(command, args, context)
+                    if resp:
+                        chat_id = update['message']['chat']['id']
+                        bot.send_message(resp, chat_id=chat_id)
+        return last_id
+    except Exception as e:
+        # Silently fail or log if needed, avoid crashing main thread
+        return last_id
+
 # Setup logging
 # Setup logging
 logging.basicConfig(
@@ -109,47 +133,29 @@ def main():
             current_time = time.time()
             
             # --- 1. Session & Risk Management ---
-            # Check if Session Loss limit is hit
+             # --- 0. Check Requests (High Priority) ---
+            # Shared context for commands
+            command_context = {
+                'state_manager': state_manager,
+                'session_manager': session_manager,
+                'risk_manager': risk,
+                'visualizer': visualizer,
+                'mt5_bridge': mt5_bridge,
+                'bybit_bridge': bybit_bridge,
+                'smc': smc,
+                'position_sizer': position_sizer,
+                'logger_buffer': log_buffer,
+                'mt5_trade_manager': mt5_trade_manager,
+                'bybit_trade_manager': bybit_trade_manager
+            }
+            last_update_id = process_telegram_updates(bot, last_update_id, command_context)
+
+            # --- 1. Session & Risk Management ---
+            # Guard: Check if Session Loss limit is hit
             if risk.check_session_loss():
-                logger.info("Session Loss Limit Hit - Scanning Paused.")
+                logger.info("Session Loss Limit Hit - Scanning Paused for 60s.")
                 time.sleep(60)
                 continue
-                
-                continue
-            
-             # --- 0. Check Requests (High Priority) ---
-            # 1s timeout to keep loop responsive
-            updates = bot.get_updates(offset=last_update_id + 1, timeout=1)
-            
-            if updates:
-                print(f"DEBUG: Processing {len(updates)} Telegram updates...")
-                context = {
-                    'state_manager': state_manager,
-                    'session_manager': session_manager,
-                    'risk_manager': risk,
-                    'visualizer': visualizer,
-                    'mt5_bridge': mt5_bridge,
-                    'bybit_bridge': bybit_bridge,
-                    'smc': smc,
-                    'position_sizer': position_sizer,
-                    'logger_buffer': log_buffer,
-                    'mt5_trade_manager': mt5_trade_manager,
-                    'bybit_trade_manager': bybit_trade_manager
-                }
-                for update in updates:
-                    last_update_id = update['update_id'] # Update Offset
-                    if 'message' in update and 'text' in update['message']:
-                        text = update['message']['text']
-                        print(f"DEBUG: Cmd received: {text}")
-                        parts = text.split(' ', 1)
-                        command = parts[0]
-                        args = parts[1] if len(parts) > 1 else ""
-                        
-                        # Execute & Reply
-                        resp = bot.handle_command(command, args, context)
-                        if resp:
-                            chat_id = update['message']['chat']['id']
-                            bot.send_message(resp, chat_id=chat_id)
 
             # Protect Active Trades (News)
             active_trades = state_manager.state.get('active_trades', [])
@@ -176,7 +182,10 @@ def main():
             t_str = datetime.now().strftime('%H:%M:%S')
             print(f"\n[{t_str}] 🔍 Scanning {len(watchlist)} assets (Sessions: {', '.join(current_sessions)})...")
             
-            for symbol in all_monitored_symbols:
+            for i, symbol in enumerate(all_monitored_symbols):
+                # High-Frequency Command check (every 2 symbols)
+                if i % 2 == 0:
+                    last_update_id = process_telegram_updates(bot, last_update_id, command_context)
                 # Bridge Selection
                 bridge = None
                 trade_mgr = None
