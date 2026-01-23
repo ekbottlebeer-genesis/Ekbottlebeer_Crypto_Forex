@@ -113,6 +113,32 @@ def main():
                 time.sleep(60)
                 continue
                 
+                continue
+            
+             # --- 0. Check Requests (High Priority) ---
+            updates = bot.get_updates()
+            if updates:
+                context = {
+                    'state_manager': state_manager,
+                    'session_manager': session_manager,
+                    'risk_manager': risk,
+                    'visualizer': visualizer,
+                    'mt5_bridge': mt5_bridge,
+                    'bybit_bridge': bybit_bridge,
+                    'smc': smc,
+                    'position_sizer': position_sizer,
+                    'logger_buffer': log_buffer,
+                    'mt5_trade_manager': mt5_trade_manager,
+                    'bybit_trade_manager': bybit_trade_manager
+                }
+                for update in updates:
+                    if 'message' in update and 'text' in update['message']:
+                        text = update['message']['text']
+                        parts = text.split(' ', 1)
+                        command = parts[0]
+                        args = parts[1] if len(parts) > 1 else ""
+                        bot.handle_command(command, args, context)
+
             # Protect Active Trades (News)
             active_trades = state_manager.state.get('active_trades', [])
             if active_trades:
@@ -239,7 +265,40 @@ def main():
                 sweep = smc.detect_htf_sweeps(htf_candles)
                 
                 if not sweep['swept']:
-                    print(f"   ⏩ {symbol}: [NEUTRAL] Scanning...")
+                    # HUD v2: Detailed Status (RSI + Bias) for Neutral Assets
+                    # We need LTF data for RSI.
+                     # MT5: 5m=5, Bybit: '5'
+                    ltf_tf_scan = '5' if bridge == bybit_bridge else 5
+                    # Optimize: Only 50 candles needed for RSI(14)
+                    ltf_scan_data = bridge.get_candles(symbol, timeframe=ltf_tf_scan, num_candles=50)
+                    
+                    status_line = f"⏩ {symbol}: [NEUTRAL] Scanning..."
+                    if ltf_scan_data is not None and not ltf_scan_data.empty:
+                         try:
+                             # Calculate RSI
+                             ltf_scan_data['rsi'] = smc.calculate_rsi(ltf_scan_data['close'], 14)
+                             curr_rsi = ltf_scan_data.iloc[-1]['rsi']
+                             
+                             # Determine Bias/State
+                             bias = "NEUTRAL"
+                             state_desc = "Choppy / Weak Trend"
+                             
+                             if curr_rsi > 60: 
+                                 bias = "BULLISH"
+                                 state_desc = "Momentum Up"
+                             elif curr_rsi < 40: 
+                                 bias = "BEARISH"
+                                 state_desc = "Momentum Down"
+                             
+                             # Check for 'Zones' (Near OB/OS)
+                             if curr_rsi > 70: state_desc = "🔥 OVERBOUGHT! Monitor Reversal"
+                             if curr_rsi < 30: state_desc = "🧊 OVERSOLD! Monitor Reversal"
+                             
+                             status_line = f"📊 {symbol}: {bias} | RSI: {curr_rsi:.1f} | {state_desc}"
+                         except:
+                             pass
+                    
+                    print(f"   {status_line}")
                 
                 if sweep['swept']:
                     logger.info(f"🚨 HTF Sweep Detected on {symbol}: {sweep['desc']} @ {sweep['level']}")
@@ -396,33 +455,7 @@ def main():
                 last_heartbeat = current_time
                 state_manager.save_state()
             
-            # --- 4. Check Requests ---
-            updates = bot.get_updates()
-            if updates:
-                context = {
-                    'state_manager': state_manager,
-                    'session_manager': session_manager,
-                    'risk_manager': risk,
-                    'visualizer': visualizer,
-                    'mt5_bridge': mt5_bridge,
-                    'bybit_bridge': bybit_bridge,
-                    'smc': smc,
-                    'position_sizer': position_sizer,
-                    'logger_buffer': log_buffer,
-                    'mt5_trade_manager': mt5_trade_manager,
-                    'bybit_trade_manager': bybit_trade_manager
-                }
-                for update in updates:
-                    if 'message' in update and 'text' in update['message']:
-                        text = update['message']['text']
-                        # Simple argument parsing
-                        parts = text.split(' ', 1)
-                        command = parts[0]
-                        args = parts[1] if len(parts) > 1 else ""
-                        
-                        bot.handle_command(command, args, context)
-
-            time.sleep(5) # Scan delay
+            time.sleep(3) # Faster Loop (3s) for Responsiveness
             
     except KeyboardInterrupt:
         logger.info("Shutdown signal received.")
