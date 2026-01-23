@@ -78,12 +78,15 @@ The bot is designed to operate in two distinct modes:
 |  | `/history` | **Log**: View the last 5 closed trades with profit/loss. |
 |  | `/close [SYM]` | **Force Exit**: Immediately close all trades for a specific symbol. |
 |  | `/panic` | **KILL SWITCH**: Closes ALL open positions and cancels all pending orders. (Req: `YES_Sure`) |
-| **Strategy Control** | `/pause` | **Suspend**: Stop looking for new entries (manages existing trades only). |
-|  | `/resume` | **Resume**: Re-enable entry-hunting logic. |
+| **Strategy Control** | `/pause` | **Suspend**: Stop looking for new entries (All Markets). |
+|  | `/pausecrypto` | **Suspend**: Stop looking for new Crypto entries only. |
+|  | `/pauseforex` | **Suspend**: Stop looking for new Forex entries only. |
+|  | `/resume` | **Resume**: Re-enable entry-hunting logic (All Markets). |
 |  | `/trail [ON/OFF]` | **Trailing Toggle**: Enable/Disable the dynamic trailing stop logic. |
 | **Risk & Setup** | `/risk [0.5/1.0]` | **Adjust Risk**: Change % risk per trade on the fly. |
 |  | `/maxloss [AMT]` | **Hard Stop**: Set/View the daily $ drawdown limit before auto-shutdown. |
 |  | `/news` | **Calendar**: List upcoming "Red Folder" news events for the day. |
+|  | `/newsmode [ON/OFF]` | **News Logic**: Enable/Disable news filtering. |
 | **Testing** | `/test [SYM]` | **Force Entry**: Open a trade immediately based on CURRENT detected bias. |
 |  | `/canceltest` | **Close Test**: Immediately close the last trade opened via `/test`. |
 |  | `/strategy` | **Cheat Sheet**: Displays the "A+ Operator" rules in the chat. |

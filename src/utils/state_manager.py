@@ -23,6 +23,8 @@ class StateManager:
         # Default State
         return {
             "system_status": "active",
+            "crypto_status": "active",
+            "forex_status": "active",
             "last_heartbeat": None,
             "session_pnl": 0.0,
             "current_session": "waiting",

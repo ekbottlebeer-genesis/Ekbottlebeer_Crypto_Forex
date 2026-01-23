@@ -163,13 +163,23 @@ def main():
                             trade_mgr.manage_active_trade(trade, price_to_check, ltf_candles=mgmt_candles)
 
                 # --- B. Hunt for Setups (SMC Logic) ---
-                # ONLY run this if the symbol is in the ACTIVE SESSION WATCHLIST
-                # Also check PAUSE status
+                # Check Global Status
                 system_status = state_manager.state.get('system_status', 'active')
                 
-                if symbol not in watchlist or system_status == 'paused':
-                    # logger.debug(f"Skipping Search for {symbol} (Out of Session/Paused)")
-                    continue
+                # Check Granular Status
+                is_crypto = symbol in session_manager.crypto_symbols
+                market_status = state_manager.state.get('crypto_status', 'active') if is_crypto else state_manager.state.get('forex_status', 'active')
+                
+                # Scan Condition: 
+                # 1. Symbol in Session Watchlist
+                # 2. Global System Active
+                # 3. Specific Market Active
+                
+                if symbol not in watchlist: continue
+                
+                if system_status == 'paused' or market_status == 'paused':
+                     # logger.debug(f"Skipping {symbol} (Paused)")
+                     continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
