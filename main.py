@@ -362,18 +362,20 @@ def main():
                         ltf_candles['rsi'] = smc.calculate_rsi(ltf_candles['close'], 14)
                         current_rsi = ltf_candles.iloc[-1]['rsi']
 
-                        # Filter Logic (Matches Backtest)
+                        # Filter Logic (Strictly Matches README Strategy)
                         rsi_ok = False
-                        if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias
-                             if (30 <= current_rsi <= 70): # Relaxed to 70 for Short momentum
+                        if sweep['side'] == 'buy_side': # We swept highs -> Bearish Bias (Short)
+                             # Strategy: RSI < 60 (Momentum) and > 30 (No Oversold)
+                             if (30 <= current_rsi <= 60): 
                                 rsi_ok = True
                              else:
-                                logger.info(f"   📉 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-70)")
-                        else: # We swept lows -> Bullish Bias
-                             if (30 <= current_rsi <= 70): # Relaxed to 30 for Long momentum
+                                logger.info(f"   📉 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-60 for Short)")
+                        else: # We swept lows -> Bullish Bias (Long)
+                             # Strategy: RSI > 40 (Momentum) and < 70 (No Overbought)
+                             if (40 <= current_rsi <= 70): 
                                 rsi_ok = True
                              else:
-                                logger.info(f"   📈 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-70)")
+                                logger.info(f"   📈 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 40-70 for Long)")
                         
                         if not rsi_ok:
                             state_manager.update_scan_data(symbol, {
