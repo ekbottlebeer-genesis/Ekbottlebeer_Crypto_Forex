@@ -390,7 +390,10 @@ class TelegramBot:
             response.raise_for_status()
             return response.json().get("result", [])
         except Exception as e:
-            logger.error(f"Failed to get Telegram updates: {e}")
+            if "409" in str(e):
+                logger.critical("⚠️ TELEGRAM CONFLICT (409): Another instance is running! Please kill old processes.")
+            else:
+                logger.error(f"Failed to get Telegram updates: {e}")
             return []
 
 

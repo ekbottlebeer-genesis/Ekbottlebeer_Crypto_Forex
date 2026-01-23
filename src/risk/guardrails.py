@@ -100,6 +100,11 @@ class RiskGuardrails:
             
         except Exception as e:
             logger.error(f"Failed to fetch Forex Factory calendar: {e}")
+            if "429" in str(e):
+                logger.warning("Hypersensitive Rate Limit active. Cool down enforced.")
+            
+            # Prevent rapid retries by updating fetch time anyway (Wait 4 hours or until restart)
+            self.last_fetch_time = datetime.now()
             self.high_impact_events = []
 
     def check_news(self, symbol):
