@@ -32,7 +32,7 @@ class Visualizer:
         :param filename: Output filename for the screenshot
         :return: Path to the screenshot
         """
-        """
+
         try:
             if Chart is None:
                 logger.warning("Visualizer: lightweight_charts not available. Skipping chart generation.")
