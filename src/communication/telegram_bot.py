@@ -202,14 +202,25 @@ class TelegramBot:
             
         elif cmd in ['/status', '/check']:
             mt5_bal = context['mt5_bridge'].get_balance() if context and 'mt5_bridge' in context else "N/A"
-            bybit_bal = context['bybit_bridge'].get_balance() if context and 'bybit_bridge' in context else "N/A"
-            mt5_ok = context['mt5_bridge'].connected if context and 'mt5_bridge' in context else False
-            bybit_ok = context['bybit_bridge'].session is not None if context and 'bybit_bridge' in context else False
+            bybit_bal = "N/A"
+            bybit_ok = False
             
+            if context and 'bybit_bridge' in context:
+                bybit_bal = context['bybit_bridge'].get_balance()
+                bybit_ok = context['bybit_bridge'].session is not None
+                if bybit_bal > 0:
+                    bybit_ok = True
+            
+            mt5_ok = context['mt5_bridge'].connected if context and 'mt5_bridge' in context else False
+            
+            bybit_note = ""
+            if bybit_bal == 0.0 and bybit_ok:
+                bybit_note = "\n⚠️ *Note*: Bybit $0.0 found across UNIFIED/SPOT/CONTRACT. Check API permissions or Demo Activation."
+
             return (
                 f"💰 **Wallet Status**\n"
-                f"MT5 Equity: ${mt5_bal}\n"
-                f"Bybit Equity: ${bybit_bal}\n\n"
+                f"MT5 Equity: `${mt5_bal}`\n"
+                f"Bybit Equity: `${bybit_bal}`{bybit_note}\n\n"
                 f"✅ **Diagnostics**\n"
                 f"MT5 Bridge: {'🟢' if mt5_ok else '🔴'}\n"
                 f"Bybit Bridge: {'🟢' if bybit_ok else '🔴'}\n"

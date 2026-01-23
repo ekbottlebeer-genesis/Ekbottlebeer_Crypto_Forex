@@ -255,36 +255,46 @@ class BybitBridge:
             return False
 
     def get_balance(self):
+        """Exhaustively searches all Bybit account types for any USDT/USD balance."""
         if not self.session: return 0.0
-        try:
-             # Standard: Unified Trading Account / Demo
-             resp = self.session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
-             
-             # PHASE 16 ULTRA-VERBOSE TRACING
-             logger.info(f"DEBUG: Bybit Full Balance Response: {resp}")
-             
-             if resp['retCode'] == 0:
-                 acc_list = resp['result']['list']
-                 if acc_list:
-                     acc = acc_list[0]
-                     # Try to get balance from various keys (depending on Bybit sub-type)
-                     equity = float(acc.get('totalEquity', 0))
-                     if equity > 0: return equity
-                     
-                     # Check coin list
-                     coin_list = acc.get('coin', [])
-                     for c in coin_list:
-                         if c['coin'] == 'USDT':
-                             return float(c.get('equity', c.get('walletBalance', 0)))
-             
-             # FALLBACK: Try fetching without specifying USDT (Get all and look for max)
-             gen_resp = self.session.get_wallet_balance(accountType="UNIFIED")
-             if gen_resp['retCode'] == 0 and gen_resp['result']['list']:
-                 gen_acc = gen_resp['result']['list'][0]
-                 gen_equity = float(gen_acc.get('totalEquity', 0))
-                 if gen_equity > 0: return gen_equity
-                 
-             return 0.0
-        except Exception as e:
-             logger.error(f"Error fetching Bybit balance: {e}")
-             return 0.0
+        
+        # Types of accounts to probe in order of likelihood
+        account_types = ["UNIFIED", "CONTRACT", "SPOT", "FUND"]
+        
+        for acc_type in account_types:
+            try:
+                resp = self.session.get_wallet_balance(accountType=acc_type, coin="USDT")
+                logger.debug(f"PROBING {acc_type}: {resp['retCode']} - {resp['retMsg']}")
+                
+                if resp['retCode'] == 0:
+                    acc_list = resp['result']['list']
+                    if acc_list:
+                        acc = acc_list[0]
+                        # 1. Check Total Equity (Most accurate for UTA)
+                        equity = float(acc.get('totalEquity', acc.get('equity', 0)))
+                        if equity > 0:
+                            logger.info(f"💰 Found Balance in {acc_type}: ${equity}")
+                            return equity
+                        
+                        # 2. Check individual coin break-out
+                        coin_list = acc.get('coin', [])
+                        for c in coin_list:
+                            coin_equity = float(c.get('equity', c.get('walletBalance', 0)))
+                            if c['coin'] == 'USDT' and coin_equity > 0:
+                                logger.info(f"💰 Found USDT in {acc_type} (coin list): ${coin_equity}")
+                                return coin_equity
+                                
+                # Second attempt: check without coin filter (sum total)
+                gen_resp = self.session.get_wallet_balance(accountType=acc_type)
+                if gen_resp['retCode'] == 0 and gen_resp['result']['list']:
+                    gen_acc = gen_resp['result']['list'][0]
+                    total = float(gen_acc.get('totalEquity', gen_acc.get('equity', 0)))
+                    if total > 0:
+                        logger.info(f"💰 Found Sum Balance in {acc_type}: ${total}")
+                        return total
+            except Exception as e:
+                # Some types might not be supported by the current session/key, skip silently
+                continue
+
+        logger.warning("Bybit: Exhaustive balance search completed. No funds found in UNIFIED, CONTRACT, SPOT, or FUND.")
+        return 0.0
