@@ -237,9 +237,10 @@ class MT5Bridge:
 
         action = mt5.TRADE_ACTION_PENDING if 'limit' in order_type or 'stop' in order_type else mt5.TRADE_ACTION_DEAL
         
-        # If Market execution, price MUST be proper (or 0 depending on strictness), but let's try strict Ask/Bid
         if is_market:
-             norm_price = current_tick.ask if 'buy' in order_type else current_tick.bid
+            # OPTIMIZATION: For "Market Execution", MT5 requires price to be 0.0 for many brokers.
+            # Sending a specific price (even current) can cause "Invalid Price" or "Off Quotes".
+            norm_price = 0.0
         
         request = {
             "action": action,
