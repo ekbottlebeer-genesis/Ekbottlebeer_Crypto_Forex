@@ -46,6 +46,7 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
 - **Channels**:
   - **Control Room**: Your main bot chat for logs and commands.
   - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts.
+  - **Auto-Evidence**: Automatically sends a high-res chart screenshot (Entry/SL/TP/Context) for *every* trade execution.
 - **Commands** (Now available in Telegram Menu):
 
 | **Category** | **Command** | **Action** |
