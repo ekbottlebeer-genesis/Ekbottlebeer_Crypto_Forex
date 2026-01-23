@@ -1,3 +1,4 @@
+import logging
 from src.strategy.smc_logic import SMCLogic
 
 logger = logging.getLogger(__name__)
