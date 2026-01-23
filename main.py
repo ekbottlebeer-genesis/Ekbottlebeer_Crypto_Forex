@@ -143,7 +143,12 @@ def main():
                         parts = text.split(' ', 1)
                         command = parts[0]
                         args = parts[1] if len(parts) > 1 else ""
-                        bot.handle_command(command, args, context)
+                        
+                        # Execute & Reply
+                        resp = bot.handle_command(command, args, context)
+                        if resp:
+                            chat_id = update['message']['chat']['id']
+                            bot.send_message(resp, chat_id=chat_id)
 
             # Protect Active Trades (News)
             active_trades = state_manager.state.get('active_trades', [])
