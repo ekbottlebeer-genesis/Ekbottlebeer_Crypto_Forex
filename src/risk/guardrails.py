@@ -45,66 +45,87 @@ class RiskGuardrails:
 
     def fetch_calendar(self):
         """
-        Fetches economic calendar from Forex Factory (XML feed).
-        Filters for USD High Impact (Red Folder) events.
+        Fetches economic calendar. Checks local cache first to avoid API limits.
         """
+        import json
+        cache_file = "news_cache.json"
+        
+        # 1. Try Load from Cache
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'r') as f:
+                    cache = json.load(f)
+                    cache_time = datetime.fromisoformat(cache['timestamp'])
+                    
+                    # If cache is less than 12 hours old, use it
+                    if (datetime.now() - cache_time).total_seconds() < 43200:
+                         logger.info(f"Loaded {len(cache['events'])} news events from local cache ({cache['timestamp']})")
+                         # Re-hydrate dates
+                         self.high_impact_events = []
+                         for e in cache['events']:
+                             e['time'] = datetime.fromisoformat(e['time'])
+                             self.high_impact_events.append(e)
+                         self.last_fetch_time = cache_time
+                         return
+            except Exception as e:
+                logger.warning(f"Failed to load news cache: {e}")
+
+        # 2. Fetch from API
         url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
         try:
-            # Add User-Agent to avoid 429
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
-            # Simple XML parsing
+            # XML Parsing
             import xml.etree.ElementTree as ET
             import pytz
             root = ET.fromstring(response.content)
             
             events = []
+            cache_events = [] # For JSON serialization
             
             for child in root:
                 try:
                     country = child.find('country').text
                     impact = child.find('impact').text
-                    date_str = child.find('date').text
-                    time_str = child.find('time').text
-                    
-                    # Filter: US Market (USD) and High Impact (Red)
-                    if country != 'USD':
-                        continue
-                    if impact != 'High':
-                        continue
+                    if country != 'USD' or impact != 'High': continue
                         
-                    # Parse Datetime
-                    # Format is usually: date: MM-DD-YYYY, time: 1:30pm
-                    dt_str = f"{date_str} {time_str}"
+                    dt_str = f"{child.find('date').text} {child.find('time').text}"
                     event_dt = datetime.strptime(dt_str, "%m-%d-%Y %I:%M%p")
-                    
-                    # Convert to UTC (Assuming NY time for FF XML)
                     tz_ny = pytz.timezone('America/New_York')
                     event_dt = tz_ny.localize(event_dt).astimezone(pytz.UTC)
                     
-                    events.append({
+                    evt = {
                         'title': child.find('title').text,
                         'time': event_dt,
                         'impact': impact,
                         'currency': 'USD'
-                    })
+                    }
+                    events.append(evt)
                     
-                except Exception as e:
-                    continue
+                    # Store serialized version
+                    evt_ser = evt.copy()
+                    evt_ser['time'] = evt['time'].isoformat()
+                    cache_events.append(evt_ser)
+                    
+                except: continue
                     
             self.high_impact_events = events
             self.last_fetch_time = datetime.now()
             logger.info(f"Fetched {len(events)} High Impact USD events from Forex Factory.")
             
+            # 3. Save to Cache
+            try:
+                with open(cache_file, 'w') as f:
+                    json.dump({'timestamp': datetime.now().isoformat(), 'events': cache_events}, f)
+            except Exception as e:
+                logger.warning(f"Failed to save news cache: {e}")
+            
         except Exception as e:
             logger.error(f"Failed to fetch Forex Factory calendar: {e}")
-            if "429" in str(e):
-                logger.warning("Hypersensitive Rate Limit active. Cool down enforced.")
-            
-            # Prevent rapid retries by updating fetch time anyway (Wait 4 hours or until restart)
-            self.last_fetch_time = datetime.now()
+            if "429" in str(e): logger.warning("Hypersensitive Rate Limit active. Cool down enforced.")
+            self.last_fetch_time = datetime.now() # Cooldown
             self.high_impact_events = []
 
     def check_news(self, symbol):
