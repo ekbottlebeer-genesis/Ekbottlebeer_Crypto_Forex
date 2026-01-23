@@ -90,6 +90,10 @@ def main():
     
     logging.info(f"Initializing The Ekbottlebeer A+ Operator [{VERSION}]...")
     print(f"--> BOOTING VERSION: {VERSION}") # Console visibility
+    
+    # DEBUG: Force print Bybit settings from env
+    print(f"--> ENV CHECK: BYBIT_DEMO={os.getenv('BYBIT_DEMO')}")
+    print(f"--> ENV CHECK: BYBIT_TESTNET={os.getenv('BYBIT_TESTNET')}")
 
     # 2. Check for critical environment variables
     chk_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]

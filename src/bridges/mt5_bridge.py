@@ -43,21 +43,34 @@ class MT5Bridge:
         self.connected = True
         return True
 
+    def _find_symbol(self, symbol):
+        """Helper to find the correct symbol variant (e.g. with .a suffix)."""
+        variants = [symbol, symbol.upper(), symbol + ".a", symbol.upper() + ".a", symbol + ".m", symbol.upper() + ".m"]
+        for v in variants:
+            if mt5.symbol_info(v) is not None:
+                return v
+        return None
+
     def get_candles(self, symbol, timeframe, num_candles=1000):
         """
-        Fetches candles from MT5.
+        Fetches candles from MT5 with auto-suffix matching.
         """
         if not self.connected: 
             if not self.connect(): return None
 
-        # Ensure symbol is selected in Market Watch (Mandatory for ticks/candles)
-        if not mt5.symbol_select(symbol, True):
-            logger.error(f"Failed to select symbol {symbol} in MT5 Market Watch.")
+        found_symbol = self._find_symbol(symbol)
+        if not found_symbol:
+            logger.error(f"Failed to find symbol {symbol} (or variants) in MT5 database.")
             return None
 
-        rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, num_candles)
+        # Ensure symbol is selected in Market Watch (Mandatory for ticks/candles)
+        if not mt5.symbol_select(found_symbol, True):
+            logger.error(f"Failed to select symbol {found_symbol} in MT5 Market Watch.")
+            return None
+
+        rates = mt5.copy_rates_from_pos(found_symbol, timeframe, 0, num_candles)
         if rates is None:
-            logger.error(f"Failed to get candles for {symbol}. Error: {mt5.last_error()}")
+            logger.error(f"Failed to get candles for {found_symbol}. Error: {mt5.last_error()}")
             return None
 
         df = pd.DataFrame(rates)
@@ -65,19 +78,10 @@ class MT5Bridge:
         return df
 
     def get_tick(self, symbol):
-        """Returns current bid/ask."""
+        """Returns current bid/ask with auto-suffix matching."""
         if not self.connected: self.connect()
         
-        # 1. Existence Check & Setup (Try original, then uppercase)
-        symbols_to_try = [symbol, symbol.upper()]
-        found_symbol = None
-        
-        for s in symbols_to_try:
-            info = mt5.symbol_info(s)
-            if info is not None:
-                found_symbol = s
-                break
-        
+        found_symbol = self._find_symbol(symbol)
         if not found_symbol:
             logger.error(f"MT5: Symbol {symbol} NOT FOUND in MT5 database.")
             return None

@@ -11,14 +11,18 @@ class BybitBridge:
         api_key = os.getenv("BYBIT_API_KEY")
         api_secret = os.getenv("BYBIT_API_SECRET")
         
-        # Bybit Demo Trading (Unified Account on specific api-demo subdomain)
-        demo_trading = os.getenv("BYBIT_DEMO", "False").lower() == "true"
+        # FORCE RE-LOAD check for BYBIT_DEMO
+        demo_trading = os.getenv("BYBIT_DEMO", "False").strip().lower() == "true"
         
         if demo_trading:
             logger.info("Configuring for Bybit DEMO Trading (api-demo.bybit.com)...")
             testnet = False 
         else:
-            testnet = os.getenv("BYBIT_TESTNET", "True").lower() == "true"
+            testnet = os.getenv("BYBIT_TESTNET", "True").strip().lower() == "true"
+        
+        # Log detected values for visibility
+        logger.info(f"PROBING: BYBIT_DEMO env is '{os.getenv('BYBIT_DEMO')}' -> demo={demo_trading}")
+        logger.info(f"PROBING: BYBIT_TESTNET env is '{os.getenv('BYBIT_TESTNET')}' -> testnet={testnet}")
         
         self.session = None
         self._instruments_cache = {} 
