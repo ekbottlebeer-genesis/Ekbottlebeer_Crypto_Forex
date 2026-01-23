@@ -98,10 +98,16 @@ def main():
 
             session_info = session_manager.get_current_session_info()
             current_sessions = session_info['sessions']
-            watchlist = session_info['watchlist']
+            watchlist = set(session_info['watchlist']) # Convert to set for lookup speed
+            
+            # Identify all symbols with active trades
+            active_trade_symbols = {t['symbol'] for t in active_trades}
+            
+            # Combine loop: Watchlist (Hunting) + Active Trades (Managing)
+            all_monitored_symbols = watchlist.union(active_trade_symbols)
             
             # --- 2. Market Scan Loop ---
-            for symbol in watchlist:
+            for symbol in all_monitored_symbols:
                 # Bridge Selection
                 bridge = None
                 trade_mgr = None
@@ -115,7 +121,7 @@ def main():
                 # Only proceed if bridge connected/active (Stub check)
                 
                 # --- A. Manage Active Trades (Trailing, TP) ---
-                # Find active trades for this symbol
+                # Always run this regardless of session correctness
                 symbol_trades = [t for t in active_trades if t['symbol'] == symbol]
                 if symbol_trades:
                     # Fetch data needed for management
@@ -131,10 +137,15 @@ def main():
                         for trade in symbol_trades:
                             # Use Ask for Short closing? Simplify to mid or Bid for now.
                             # Accurate: Long exits on Bid, Short exits on Ask.
+                            # price_to_check = tick['bid'] if trade['direction'] == 'long' else tick['ask'] # Correction: Long closes on Bid, Short on Ask. Correct.
                             price_to_check = tick['bid'] if trade['direction'] == 'long' else tick['ask']
                             trade_mgr.manage_active_trade(trade, price_to_check, ltf_candles=mgmt_candles)
 
                 # --- B. Hunt for Setups (SMC Logic) ---
+                # ONLY run this if the symbol is in the ACTIVE SESSION WATCHLIST
+                if symbol not in watchlist:
+                    # logger.debug(f"Skipping Search for {symbol} (Out of Session)")
+                    continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
