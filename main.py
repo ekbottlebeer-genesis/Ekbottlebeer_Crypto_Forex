@@ -12,6 +12,9 @@ from src.strategy.session_manager import SessionManager
 from src.utils.state_manager import StateManager
 from src.strategy.trade_manager import TradeManager
 from src.risk.position_sizer import PositionSizer
+from src.strategy.smc_logic import SMCLogic
+from src.risk.guardrails import RiskGuardrails
+from src.utils.visualizer import Visualizer
 
 # Setup logging
 logging.basicConfig(
