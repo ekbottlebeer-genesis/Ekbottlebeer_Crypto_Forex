@@ -47,14 +47,27 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
   - **Control Room**: Your main bot chat for logs and commands.
   - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts.
 - **Commands** (Now available in Telegram Menu):
-  - `/scan`: **Market Pulse**. Shows active sessions, watchlist size, and active trade count.
-  - `/status`: **System Health**. Checks bridge connections and wallet balances.
-  - `/positions`: **Portfolio View**. List all currently open positions with PnL.
-  - `/chart [SYMBOL]`: **Visualizer**. Generates and sends a snapshot chart with SMC annotations.
-  - `/newsmode [on/off]`: **News Toggle**. Manually enable/disable the Red Folder filter.
-  - `/maxloss [AMOUNT]`: **Risk Control**. Set a hard session loss limit (e.g., `/maxloss 500`).
-  - `/panic`: 💀 **KILL SWITCH**. Emergencies only. Closes ALL positions across both brokers.
-  - `/help`: Show this command list.
+
+| **Category** | **Command** | **Action** |
+| --- | --- | --- |
+| **Operational** | `/scan` | **Market Pulse**: View trend bias and RSI state for all watched assets. |
+|  | `/status` | **Wallet**: Real-time Equity, Margin, and Free Margin. |
+|  | `/check` | **Diagnostics**: Verify MT5/Broker connection and server heartbeat. |
+|  | `/logs` | **Live View**: Shows last 10 lines of console output ("Are you Scanning?"). |
+|  | `/chart [SYM]` | **Visual Check**: Bot sends a screenshot of the chart with HTF/LTF levels marked. |
+| **Trade Mgmt** | `/positions` | **Live Trades**: View PnL, Entry, SL, and TP of all open positions. |
+|  | `/history` | **Log**: View the last 5 closed trades with profit/loss. |
+|  | `/close [SYM]` | **Force Exit**: Immediately close all trades for a specific symbol. |
+|  | `/panic` | **KILL SWITCH**: Closes ALL open positions and cancels all pending orders. (Req: `YES_Sure`) |
+| **Strategy Control** | `/pause` | **Suspend**: Stop looking for new entries (manages existing trades only). |
+|  | `/resume` | **Resume**: Re-enable entry-hunting logic. |
+|  | `/trail [ON/OFF]` | **Trailing Toggle**: Enable/Disable the dynamic trailing stop logic. |
+| **Risk & Setup** | `/risk [0.5/1.0]` | **Adjust Risk**: Change % risk per trade on the fly. |
+|  | `/maxloss [AMT]` | **Hard Stop**: Set/View the daily $ drawdown limit before auto-shutdown. |
+|  | `/news` | **Calendar**: List upcoming "Red Folder" news events for the day. |
+| **Testing** | `/test [SYM]` | **Force Entry**: Open a trade immediately based on CURRENT detected bias. |
+|  | `/canceltest` | **Close Test**: Immediately close the last trade opened via `/test`. |
+|  | `/strategy` | **Cheat Sheet**: Displays the "A+ Operator" rules in the chat. |
 
 ---
 
