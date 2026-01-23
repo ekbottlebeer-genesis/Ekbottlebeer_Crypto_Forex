@@ -48,7 +48,7 @@ Check `src/risk/position_sizer.py` and `main.py` parameters.
 ## 3. Operational Checklist
 
 -   [ ] **VPS/Server**: Ensure the bot is running on a stable VPS (e.g., AWS EC2, Contabo) in the same region as the broker servers for low latency.
--   [ ] **Watchdog**: Ensure `watchdog.bat` is running to auto-restart the bot if it crashes.
+-   [ ] **Watchdog**: Ensure `Run Ekbottlebeer Scalper (watchdog).bat` is running to auto-restart the bot if it crashes.
 -   [ ] **Telegram**: Verify you are receiving "Heartbeat" messages every hour.
 -   [ ] **Time Sync**: Ensure the server time is strictly synced (NTP).
 
