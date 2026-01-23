@@ -22,7 +22,7 @@ class TradeManager:
         """
         Block 3.2: Trade Lifecycle & Trailing Management.
         Includes Structural Smart Exit (Reversal MSS).
-        """
+        
         1. BE Trigger: At 1.5R, move SL to (Entry - 0.25R buffer).
         2. Partial TP: At 2.0R, close 30%.
         3. Trailing SL: Post 2.0R, trail behind recent structure.

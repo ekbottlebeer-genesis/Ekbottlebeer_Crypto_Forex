@@ -12,10 +12,9 @@ class Backtester:
         self.visualizer = Visualizer(export_dir="backtest_results")
         self.results = []
 
-            # but that involves "future knowledge" if not careful.
-            
-            # Placeholder for logic integration
-            pass
+    def run(self, data_path):
+        # Placeholder for logic integration
+        pass
             
         logger.info("Backtest Complete.")
         return self.results
