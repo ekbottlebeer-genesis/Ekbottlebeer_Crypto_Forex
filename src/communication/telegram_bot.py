@@ -2,6 +2,8 @@
 import logging
 import requests
 import os
+import pytz
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -291,9 +293,13 @@ class TelegramBot:
             if context and 'risk_manager' in context:
                 events = context['risk_manager'].high_impact_events
                 if not events: return "📅 No High Impact News cached."
-                msg = "📅 **Upcoming News**\n"
+                msg = "📅 **Upcoming News (Melbourne Time)**\n"
+                mel_tz = pytz.timezone('Australia/Melbourne')
                 for e in events[:5]:
-                    msg += f"• {e['title']} @ {e['time'].strftime('%H:%M')}\n"
+                    # Convert UTC event time to Melbourne
+                    utc_time = e['time'].replace(tzinfo=pytz.UTC)
+                    local_time = utc_time.astimezone(mel_tz)
+                    msg += f"• {local_time.strftime('%d %b %H:%M')} - {e['title']}\n"
                 return msg
             return "📅 News module unavailable."
 

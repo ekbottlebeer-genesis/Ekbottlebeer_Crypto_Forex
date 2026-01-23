@@ -46,15 +46,18 @@ class MT5Bridge:
     def get_candles(self, symbol, timeframe, num_candles=1000):
         """
         Fetches candles from MT5.
-        timeframe: e.g., mt5.TIMEFRAME_M5, mt5.TIMEFRAME_H1
-        num_candles: Quantity to fetch.
         """
         if not self.connected: 
             if not self.connect(): return None
 
+        # Ensure symbol is selected in Market Watch (Mandatory for ticks/candles)
+        if not mt5.symbol_select(symbol, True):
+            logger.error(f"Failed to select symbol {symbol} in MT5 Market Watch.")
+            return None
+
         rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, num_candles)
         if rates is None:
-            logger.error(f"Failed to get candles for {symbol}")
+            logger.error(f"Failed to get candles for {symbol}. Error: {mt5.last_error()}")
             return None
 
         df = pd.DataFrame(rates)
@@ -64,9 +67,17 @@ class MT5Bridge:
     def get_tick(self, symbol):
         """Returns current bid/ask."""
         if not self.connected: self.connect()
+        
+        # Ensure symbol is selected
+        if not mt5.symbol_select(symbol, True):
+            logger.error(f"MT5: Symbol {symbol} not found or selection failed.")
+            return None
+
         tick = mt5.symbol_info_tick(symbol)
         if tick:
             return {'bid': tick.bid, 'ask': tick.ask}
+        
+        logger.error(f"MT5: tick fetch returned None for {symbol}. Error: {mt5.last_error()}")
         return None
 
     def place_limit_order(self, symbol, order_type, price, stop_loss, take_profit, volume, comment="Ekbottlebeer Bot"):
