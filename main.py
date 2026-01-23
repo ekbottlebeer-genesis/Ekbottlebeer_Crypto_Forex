@@ -237,15 +237,15 @@ def main():
                 
                 if system_status == 'paused' or market_status == 'paused':
                      status_line = f"⏸️ [PAUSED]"
-                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<8} | {status_line}")
-                     else: pepper_rows.append(f"{symbol:<8} | {status_line}")
+                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
+                     else: pepper_rows.append(f"{symbol:<10} | {status_line}")
                      continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
                     status_line = f"🚫 [NEWS FILTER]"
-                    if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<8} | {status_line}")
-                    else: pepper_rows.append(f"{symbol:<8} | {status_line}")
+                    if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
+                    else: pepper_rows.append(f"{symbol:<10} | {status_line}")
                     continue
                     
                 # 1.5. Spread Protection (Crucial for Scalping)
@@ -267,8 +267,8 @@ def main():
                 
                 if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
                      status_line = f"⚠️ [SPREAD HIGH] ({spread:.5f})"
-                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<8} | {status_line}")
-                     else: pepper_rows.append(f"{symbol:<8} | {status_line}")
+                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
+                     else: pepper_rows.append(f"{symbol:<10} | {status_line}")
                      continue
                     
                 # 2. Fetch Data (HTF - 1H)
@@ -317,7 +317,7 @@ def main():
                              pass
                     
                     # Store for rendering
-                    row_str = f"{symbol:<8} | {status_line}"
+                    row_str = f"{symbol:<10} | {status_line}"
                     if symbol in session_manager.crypto_symbols:
                         bybit_rows.append(row_str)
                     else:
