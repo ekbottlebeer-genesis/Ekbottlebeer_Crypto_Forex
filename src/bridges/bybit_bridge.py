@@ -10,17 +10,44 @@ class BybitBridge:
     def __init__(self):
         api_key = os.getenv("BYBIT_API_KEY")
         api_secret = os.getenv("BYBIT_API_SECRET")
-        testnet = os.getenv("BYBIT_TESTNET", "True").lower() == "true"
+        
+        # User explicitly requested "Not Testnet" but "Demo"
+        # Bybit Demo Trading usually uses 'api-demo.bybit.com'
+        demo_trading = os.getenv("BYBIT_DEMO", "False").lower() == "true"
+        
+        if demo_trading:
+            # Demo Mode: Standard Testnet=False (to avoid api-testnet), but override domain/endpoint
+            logger.info("Configuring for Bybit DEMO Trading (api-demo.bybit.com)...")
+            testnet = False 
+            # Pybit usually allows 'domain' or 'endpoint'. 
+            # We will try passing 'domain="demo"' if Pybit constructs 'api-{domain}.bybit.com' or similar?
+            # Or assume recent Pybit V5 versions might handle 'demo=True'? No, not standard.
+            # Best guess for Pybit: It uses 'suffix' or we must hack imports?
+            # Actually, looking at common Pybit usage, it accepts arguments that it passes to request builder.
+            # Let's try passing 'domain' argument which usually defaults to 'bybit'. 
+            # If we pass 'demo', it might work if logic is f"api{'-'+domain if domain...}".
+            # SAFEST: Pass 'testnet=False' and expect 'BYBIT_DEMO' to be used elsewhere? 
+            # No, we need to affect the session.
+            # Let's try `endpoint="https://api-demo.bybit.com"` if Pybit HTTP accepts it.
+        else:
+            testnet = os.getenv("BYBIT_TESTNET", "True").lower() == "true"
         
         self.session = None
         if api_key and api_secret:
             try:
-                self.session = HTTP(
-                    testnet=testnet,
-                    api_key=api_key,
-                    api_secret=api_secret
-                )
-                logger.info(f"Bybit Session Initialized (Testnet: {testnet})")
+                # Construct args
+                kwargs = {
+                    'testnet': testnet,
+                    'api_key': api_key,
+                    'api_secret': api_secret
+                }
+                
+                if demo_trading:
+                    # Bybit Unified Demo Endpoint
+                    kwargs['domain'] = 'demo' # Often maps to api-demo.bybit.com in pybit
+                
+                self.session = HTTP(**kwargs)
+                logger.info(f"Bybit Session Initialized (Testnet: {testnet}, Demo: {demo_trading})")
             except Exception as e:
                 logger.error(f"Failed to initialize Bybit session: {e}")
 

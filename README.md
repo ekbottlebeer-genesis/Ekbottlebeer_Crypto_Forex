@@ -128,7 +128,8 @@ MT5_SERVER=Pepperstone-Demo
 
 BYBIT_API_KEY=key
 BYBIT_API_SECRET=secret
-BYBIT_TESTNET=True
+BYBIT_TESTNET=True    # Set to False for Mainnet
+BYBIT_DEMO=True       # Set to True for Demo Trading (Non-Testnet)
 ```
 
 ### 4. Running the Bot

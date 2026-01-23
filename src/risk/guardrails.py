@@ -147,7 +147,7 @@ class RiskGuardrails:
                      
                      # 5 minutes before news (-5)
                      if -6 <= diff <= -4 and not trade.get('is_be', False):
-                         logger.info(f"News Protection: Moving {symbol} to BE (T-5 mins to {event['name']})")
+                         logger.info(f"News Protection: Moving {symbol} to BE (T-5 mins to {event['title']})")
                          # Move SL to Entry
                          bridge.modify_order(trade['ticket'], sl=trade['entry_price'])
                          trade['is_be'] = True
