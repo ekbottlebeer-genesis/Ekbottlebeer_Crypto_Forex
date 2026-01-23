@@ -22,13 +22,23 @@ if exist .venv\Scripts\activate.bat (
 
 :: 4. Install Dependencies (Ensure environment is synced)
 echo [%TIME%] [WATCHDOG] Checking/Installing requirements...
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt >nul 2>&1
 
-:: 5. Launch The Brain
+:: 5. SYSTEM DIAGNOSTICS (PRE-FLIGHT CHECKS)
+echo [%TIME%] [WATCHDOG] 🔍 Running Pre-Flight Diagnostics...
+echo ---------------------------------------------------
+python debug_mt5.py
+echo ---------------------------------------------------
+python debug_bybit_v2.py
+echo ---------------------------------------------------
+echo [%TIME%] [WATCHDOG] Diagnostics Complete.
+
+:: 6. Launch The Brain
 echo [%TIME%] [WATCHDOG] Launching Bot...
+timout /t 3
 python main.py
 
-:: 6. Crash Recovery
+:: 7. Crash Recovery
 echo [%TIME%] [WATCHDOG] Bot process ended. Restarting in 5 seconds...
 timeout /t 5
 goto loop
