@@ -2,8 +2,17 @@
 import logging
 import os
 import pandas as pd
-from lightweight_charts import Chart
-from playwright.sync_api import sync_playwright
+try:
+    from lightweight_charts import Chart
+except ImportError:
+    Chart = None
+    logging.warning("lightweight_charts module not found. Chart generation disabled.")
+
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
+    logging.warning("playwright module not found. Chart screenshots disabled.")
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +32,12 @@ class Visualizer:
         :param filename: Output filename for the screenshot
         :return: Path to the screenshot
         """
+        """
         try:
+            if Chart is None:
+                logger.warning("Visualizer: lightweight_charts not available. Skipping chart generation.")
+                return None
+            
             # 1. Initialize Chart
             chart = Chart(toolbox=True, width=1200, height=800)
             chart.legend(visible=True)
