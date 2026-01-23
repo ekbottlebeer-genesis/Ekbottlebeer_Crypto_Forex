@@ -1,18 +1,18 @@
-# src/strategy/trade_manager.py
-import logging
+from src.strategy.smc_logic import SMCLogic
 
 logger = logging.getLogger(__name__)
 
 class TradeManager:
-    def __init__(self, bridge, state_manager):
+    def __init__(self, bridge, state_manager, smc_logic=None):
         self.bridge = bridge
         self.state_manager = state_manager
+        self.smc = smc_logic if smc_logic else SMCLogic()
 
     def manage_active_trade(self, trade, current_price, ltf_candles=None):
         """
         Block 3.2: Trade Lifecycle & Trailing Management.
-        
-        Rules:
+        Includes Structural Smart Exit (Reversal MSS).
+        """
         1. BE Trigger: At 1.5R, move SL to (Entry - 0.25R buffer).
         2. Partial TP: At 2.0R, close 30%.
         3. Trailing SL: Post 2.0R, trail behind recent structure.
@@ -34,6 +34,45 @@ class TradeManager:
             
         current_r = current_distance / r_distance
         
+        # 0. Structural Smart Exit (Reversal MSS)
+        # If price closes against us beyond the most recent swing structure -> PANIC EXIT.
+        if ltf_candles is not None and not ltf_candles.empty and not trade.get('is_be', False): # Only check early entries? Or always? User said "If a position is active"
+            # User guideline: "reversal MSS on the 5m chart". 
+            try:
+                # Analyze structure
+                df_swings = self.smc.find_swings(ltf_candles.copy())
+                last_candle = df_swings.iloc[-1]
+                
+                if direction == 'long':
+                    # Check for Bearish MSS (Break of Swing Low)
+                    # Find last confirmed swing low (excluding current candle if it's forming, but finding swings needs lookback)
+                    # find_swings marks i-1. 
+                    swing_lows = df_swings[df_swings['is_swing_low'] == True]
+                    if not swing_lows.empty:
+                        last_swing = swing_lows.iloc[-1]
+                        # If current candle CLOSE is BELOW that swing low
+                        if last_candle['close'] < last_swing['swing_low_val']:
+                            logger.warning(f"🚨 Structural Exit: Bearish MSS detected for {symbol}. Closing Long immediately.")
+                            self.bridge.close_position(trade['ticket'], pct=1.0)
+                            # Update state to remove trade? 
+                            # Usually main loop handles removal if not found in open positions, 
+                            # best to mark it closed in state or let bridge/main sync handle it.
+                            # For safety, we mark it here or return 'closed' signal.
+                            return None # Signal checks stop
+                            
+                elif direction == 'short':
+                    # Check for Bullish MSS (Break of Swing High)
+                    swing_highs = df_swings[df_swings['is_swing_high'] == True]
+                    if not swing_highs.empty:
+                        last_swing = swing_highs.iloc[-1]
+                        if last_candle['close'] > last_swing['swing_high_val']:
+                             logger.warning(f"🚨 Structural Exit: Bullish MSS detected for {symbol}. Closing Short immediately.")
+                             self.bridge.close_position(trade['ticket'], pct=1.0)
+                             return None
+
+            except Exception as e:
+                logger.error(f"Smart Exit Check Failed: {e}")
+
         # 1. Break-Even Check (1.5R)
         if current_r >= 1.5 and not trade.get('is_be', False):
             # Move SL to Entry + 0.25R (Buffer) matches specific prompt:

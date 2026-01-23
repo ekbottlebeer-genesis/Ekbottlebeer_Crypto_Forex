@@ -138,14 +138,22 @@ class BybitBridge:
             # Note: set_trading_stop is for active positions. 
             # amend_order is for pending orders.
             # Assuming we are trailing an active position:
-            response = self.session.set_trading_stop(**params)
+            # Retry Loop
+            import time
+            for i in range(3):
+                try:
+                    response = self.session.set_trading_stop(**params)
+                    if response['retCode'] == 0:
+                        logger.info(f"Bybit Position Modified: {symbol} SL={sl}")
+                        return True
+                    else:
+                         logger.warning(f"Bybit Modify Attempt {i+1} Failed: {response['retMsg']}")
+                         time.sleep(1)
+                except Exception as e:
+                    logger.warning(f"Bybit Modify Exception: {e}")
+                    time.sleep(1)
             
-            if response['retCode'] == 0:
-                logger.info(f"Bybit Position Modified: {symbol} SL={sl}")
-                return True
-            else:
-                logger.error(f"Bybit Modify Failed: {response['retMsg']}")
-                return False
+            return False
         except Exception as e:
             logger.error(f"Bybit Modify Error: {e}")
             return False

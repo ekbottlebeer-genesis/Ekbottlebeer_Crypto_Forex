@@ -140,13 +140,19 @@ class MT5Bridge:
         if sl: request["sl"] = float(sl)
         if tp: request["tp"] = float(tp)
         
-        result = mt5.order_send(request)
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            logger.error(f"Modify Failed: {result.comment}")
-            return False
-            
-        logger.info(f"Order {ticket} Modified. SL: {sl}")
-        return True
+        import time
+        attempts = 3
+        for i in range(attempts):
+            result = mt5.order_send(request)
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                logger.info(f"Order {ticket} Modified. SL: {sl}")
+                return True
+            else:
+                logger.warning(f"Modify Attempt {i+1} Failed: {result.comment}. Retrying...")
+                time.sleep(1)
+                
+        logger.error(f"Modify Failed after {attempts} attempts: {result.comment}")
+        return False
 
     def close_position(self, ticket, pct=1.0):
         """Closes a position (or partial)."""
