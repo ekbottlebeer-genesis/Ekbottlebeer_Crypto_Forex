@@ -49,43 +49,90 @@ class SMCLogic:
 
         # Lookback Window
         lookback = 20
-        # Fix: Must exclude the 'prev_candle' (index -2) from the Max/Min calc
-        # Slice: from -(20+2) up to -2
-        df = htf_candles.iloc[-(lookback+2):-2] 
+        # Must exclude the 'potentially sweeping' candles
+        # Let's check the last 3 candles to see if any of them are valid sweeps
+        # that have reclaimed or are reclaiming.
         
-        # print(f"DEBUG: Checking Sweep on {len(df)} candles. High: {df['high'].max()}") 
+        df_base = htf_candles.iloc[:-5] # Base range for PDH/PDL
+        period_high = df_base['high'].max()
+        period_low = df_base['low'].min()
         
-        current_candle = htf_candles.iloc[-1]
-        prev_candle = htf_candles.iloc[-2]
-        
-        period_high = df['high'].max()
-        period_low = df['low'].min()
-        
-        # Check Buy Side Sweep (Short Bias)
-        if prev_candle['high'] > period_high and prev_candle['close'] < period_high:
-             touch_count = df[df['high'] > (period_high * 0.9998)].shape[0]
-             desc = "EQH Sweep (Double Top)" if touch_count >= 2 else "HTF High Sweep"
-             # print(f"DEBUG: Found {desc} at {prev_candle['time']}")
-             return {
-                 'swept': True, 
-                 'side': 'buy_side', 
-                 'level': period_high, 
-                 'sweep_candle_time': prev_candle['time'],
-                 'desc': desc
-             }
-             
-        # Check Sell Side Sweep (Long Bias)
-        if prev_candle['low'] < period_low and prev_candle['close'] > period_low:
-             touch_count = df[df['low'] < (period_low * 1.0002)].shape[0]
-             desc = "EQL Sweep (Double Bottom)" if touch_count >= 2 else "HTF Low Sweep"
-             # print(f"DEBUG: Found {desc} at {prev_candle['time']}")
-             return {
-                 'swept': True, 
-                 'side': 'sell_side', 
-                 'level': period_low, 
-                 'sweep_candle_time': prev_candle['time'],
-                 'desc': desc
-             }
+        # Check last 3 candles for a sweep
+        for i in range(1, 4):
+            candle = htf_candles.iloc[-i]
+            
+            # 1. Body Close Rule & Basic Sweep Check
+            # BUY SIDE SWEEP (High crosses PDH, Close < PDH)
+            if candle['high'] > period_high and candle['close'] < period_high:
+                
+                # 2. Wick Proportion Filter (>= 30% of total length)
+                total_len = candle['high'] - candle['low']
+                wick_len = candle['high'] - max(candle['open'], candle['close'])
+                if total_len > 0 and (wick_len / total_len) >= 0.3:
+                    
+                    # 3. Time-to-Reclaim Rule
+                    # From the sweep candle to current, has any closed back inside?
+                    # If i=1 (current), it already reclaimed (Close < High and Close < level).
+                    # If i=2, check -1. If i=3, check -2, -1. 
+                    # Actually, if we are at i=1, the reclaim just happened.
+                    
+                    reclaimed = False
+                    # Check candles from sweep index to end
+                    for j in range(-i, 0):
+                        if htf_candles.iloc[j]['close'] < period_high:
+                            reclaimed = True
+                            break
+                    
+                    if reclaimed:
+                        # 4. Counter-Structure Break Check
+                        # Ensure no candle between sweep and current has broken the 'Extreme'
+                        extreme_broken = False
+                        if i > 1:
+                            for k in range(-i+1, 0):
+                                if htf_candles.iloc[k]['high'] > candle['high']:
+                                    extreme_broken = True
+                                    break
+                        
+                        if not extreme_broken:
+                            return {
+                                'swept': True, 
+                                'side': 'buy_side', 
+                                'level': period_high, 
+                                'extreme': candle['high'],
+                                'sweep_candle_time': candle['time'],
+                                'desc': "HTF High Sweep (Refined)"
+                            }
+
+            # SELL SIDE SWEEP (Low crosses PDL, Close > PDL)
+            if candle['low'] < period_low and candle['close'] > period_low:
+                total_len = candle['high'] - candle['low']
+                wick_len = min(candle['open'], candle['close']) - candle['low']
+                
+                if total_len > 0 and (wick_len / total_len) >= 0.3:
+                    reclaimed = False
+                    for j in range(-i, 0):
+                        if htf_candles.iloc[j]['close'] > period_low:
+                            reclaimed = True
+                            break
+                    
+                    if reclaimed:
+                        # 4. Counter-Structure Break Check
+                        extreme_broken = False
+                        if i > 1:
+                            for k in range(-i+1, 0):
+                                if htf_candles.iloc[k]['low'] < candle['low']:
+                                    extreme_broken = True
+                                    break
+                        
+                        if not extreme_broken:
+                            return {
+                                'swept': True, 
+                                'side': 'sell_side', 
+                                'level': period_low, 
+                                'extreme': candle['low'],
+                                'sweep_candle_time': candle['time'],
+                                'desc': "HTF Low Sweep (Refined)"
+                            }
              
         return {'swept': False}
 
