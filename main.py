@@ -439,10 +439,17 @@ def main():
                             
                             # --- 7. AUTO-EVIDENCE: Generate & Send Chart ---
                             try:
+                                h1_high = htf_candles['high'].tail(24).max()
+                                h1_low = htf_candles['low'].tail(24).min()
+                                
                                 evidence_zones = {
                                     'sweeps': [{'price': sweep['level'], 'desc': sweep['desc']}],
                                     'mss': [{'time': ltf_candles.iloc[-1]['time'], 'price': mss['level']}],
                                     'fvg': [setup],
+                                    'htf': {
+                                        '1H_high': h1_high,
+                                        '1H_low': h1_low
+                                    },
                                     'trade': {
                                         'entry': entry_price,
                                         'sl': sl_price,

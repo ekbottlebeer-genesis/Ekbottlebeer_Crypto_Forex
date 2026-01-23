@@ -244,22 +244,37 @@ class TelegramBot:
             
             if not bridge: return "⚠️ Bridge not found."
 
-            # Fetch Data (H1 Default for Context)
-            df = None
+            # Fetch Data (Tactical View: M5 candles with H1 context)
+            df_5m = None
+            df_1h = None
             try:
                 is_bybit = hasattr(bridge, 'session') 
-                tf = '60' if is_bybit else 16385 
-                df = bridge.get_candles(symbol, timeframe=tf) 
+                tf_5m = '5' if is_bybit else 5
+                tf_1h = '60' if is_bybit else 16385
+                
+                df_5m = bridge.get_candles(symbol, timeframe=tf_5m, num_candles=100)
+                df_1h = bridge.get_candles(symbol, timeframe=tf_1h, num_candles=48)
             except Exception as e:
                 logger.error(f"Data fetch error: {e}")
                 return f"⚠️ Failed to fetch data for {symbol}."
 
-            if df is None or df.empty: return f"⚠️ No data returned for {symbol}."
+            if df_5m is None or df_5m.empty: return f"⚠️ No data returned for {symbol}."
 
             if context and 'visualizer' in context:
-                img_path = context['visualizer'].generate_chart(df, symbol, filename=f"{symbol}_snapshot.png")
+                # Calculate HTF levels
+                zones = {}
+                if df_1h is not None and not df_1h.empty:
+                    zones['htf'] = {
+                        '1H_high': df_1h['high'].tail(24).max(),
+                        '1H_low': df_1h['low'].tail(24).min(),
+                        '4H_high': df_1h['high'].tail(48).max(),
+                        '4H_low': df_1h['low'].tail(48).min()
+                    }
+
+                img_path = context['visualizer'].generate_chart(df_5m, symbol, zones=zones, filename=f"{symbol}_detailed.png")
                 if img_path and os.path.exists(img_path):
-                    self.send_photo(img_path, caption=f"📷 Chart Snapshot: {symbol}")
+                    h1_info = " (Inc. 1H & 4H Ranges)" if 'htf' in zones else ""
+                    self.send_photo(img_path, caption=f"📷 **Tactical Chart**: {symbol}{h1_info}")
                     return None 
                 else:
                     return f"⚠️ Chart generation failed for {symbol}."

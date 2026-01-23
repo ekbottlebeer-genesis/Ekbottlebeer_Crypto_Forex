@@ -33,7 +33,7 @@ class Visualizer:
             img_path = os.path.join(self.export_dir, filename)
             
             # 1. Custom TradingView Style
-            mc = mpf.make_marketcolors(up='#26a69a', down='#ef5350',
+            mc = mpf.make_marketcolors(up='#089981', down='#f23645', # TV Official Colors
                                        edge='inherit',
                                        wick='inherit',
                                        volume='in',
@@ -45,77 +45,57 @@ class Visualizer:
                                    edgecolor='#2a2e39',
                                    y_on_right=True)
 
-            # 2. Swing Point Detection (For Annotations)
-            # Find local high/low (3-candle pivot)
-            sh_vals = []
-            sl_vals = []
-            for i in range(1, len(data)-1):
-                # Swing High
-                if data['high'].iloc[i] > data['high'].iloc[i-1] and data['high'].iloc[i] > data['high'].iloc[i+1]:
-                    sh_vals.append(data['high'].iloc[i] * 1.001) # SLightly above
-                else:
-                    sh_vals.append(np.nan)
-                
-                # Swing Low
-                if data['low'].iloc[i] < data['low'].iloc[i-1] and data['low'].iloc[i] < data['low'].iloc[i+1]:
-                    sl_vals.append(data['low'].iloc[i] * 0.999) # Slightly below
-                else:
-                    sl_vals.append(np.nan)
-            
-            # Pad ends
-            sh_series = [np.nan] + sh_vals + [np.nan]
-            sl_series = [np.nan] + sl_vals + [np.nan]
-
-            apds = []
-            apds.append(mpf.make_addplot(sh_series, type='scatter', markersize=50, marker='v', color='#ff9800'))
-            apds.append(mpf.make_addplot(sl_series, type='scatter', markersize=50, marker='^', color='#2196f3'))
-
-            # 3. Horizontal Lines & Labels
+            # 2. Horizontal Lines Logic
             hlines = []
             h_colors = []
+            h_styles = []
             
             if zones:
+                # Execution Context
                 if 'trade' in zones:
                     t = zones['trade']
-                    if 'entry' in t: 
-                        hlines.append(t['entry'])
-                        h_colors.append('blue')
-                    if 'sl' in t: 
-                        hlines.append(t['sl'])
-                        h_colors.append('red')
-                    if 'tp' in t: 
-                        hlines.append(t['tp'])
-                        h_colors.append('green')
+                    if t.get('entry'): hlines.append(t['entry']); h_colors.append('#2962ff'); h_styles.append('-') # Blue Entry
+                    if t.get('sl'): hlines.append(t['sl']); h_colors.append('#f23645'); h_styles.append('--')     # Red SL
+                    if t.get('tp'): hlines.append(t['tp']); h_colors.append('#089981'); h_styles.append('-')     # Green TP
                 
+                # HTF Range Context (User Request)
+                if 'htf' in zones:
+                    htf = zones['htf']
+                    if htf.get('1H_high'): hlines.append(htf['1H_high']); h_colors.append('#ff9800'); h_styles.append('-.') # Orange 1H High
+                    if htf.get('1H_low'): hlines.append(htf['1H_low']); h_colors.append('#ff9800'); h_styles.append('-.')   # Orange 1H Low
+                    if htf.get('4H_high'): hlines.append(htf['4H_high']); h_colors.append('#9c27b0'); h_styles.append(':')  # Purple 4H High
+                    if htf.get('4H_low'): hlines.append(htf['4H_low']); h_colors.append('#9c27b0'); h_styles.append(':')    # Purple 4H Low
+
                 if 'sweeps' in zones:
                     for s_zone in zones['sweeps']:
                         price = s_zone.get('price', s_zone.get('level'))
                         if price:
                             hlines.append(price)
-                            h_colors.append('gold')
+                            h_colors.append('#ffd600') # Gold Sweep
+                            h_styles.append('-')
 
             # Basic Plotting Arguments
             kwargs = dict(
                 type='candle',
                 style=s,
-                title=f"\n{symbol} (M5) - The A+ Operator",
+                title=f"\n{symbol} - Tactical View",
                 ylabel='Price',
                 volume=False,
-                addplot=apds,
                 savefig=img_path,
-                figsize=(14, 9),
+                figsize=(15, 10),
                 datetime_format='%H:%M',
                 xrotation=0,
-                tight_layout=True
+                tight_layout=True,
+                scale_padding=dict(left=0.1, right=1.2, top=0.5, bottom=0.5)
             )
 
             if hlines:
-                kwargs['hlines'] = dict(hlines=hlines, colors=h_colors, linestyle='-.', linewidths=1.5)
+                kwargs['hlines'] = dict(hlines=hlines, colors=h_colors, linestyle=h_styles, linewidths=1.8)
 
             # 4. Render
             mpf.plot(data, **kwargs)
             
-            logger.info(f"Professional Chart generated: {img_path}")
+            logger.info(f"Professional Tactical Chart generated: {img_path}")
             return img_path
 
         except Exception as e:
