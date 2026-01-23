@@ -68,16 +68,31 @@ class MT5Bridge:
         """Returns current bid/ask."""
         if not self.connected: self.connect()
         
-        # Ensure symbol is selected
-        if not mt5.symbol_select(symbol, True):
-            logger.error(f"MT5: Symbol {symbol} not found or selection failed.")
+        # 1. Existence Check & Setup (Try original, then uppercase)
+        symbols_to_try = [symbol, symbol.upper()]
+        found_symbol = None
+        
+        for s in symbols_to_try:
+            info = mt5.symbol_info(s)
+            if info is not None:
+                found_symbol = s
+                break
+        
+        if not found_symbol:
+            logger.error(f"MT5: Symbol {symbol} NOT FOUND in MT5 database.")
             return None
 
-        tick = mt5.symbol_info_tick(symbol)
+        # 2. Selection (Required for ticks)
+        if not mt5.symbol_select(found_symbol, True):
+            logger.error(f"MT5: Failed to SELECT {found_symbol} in Market Watch.")
+            return None
+
+        # 3. Fetch Tick
+        tick = mt5.symbol_info_tick(found_symbol)
         if tick:
             return {'bid': tick.bid, 'ask': tick.ask}
         
-        logger.error(f"MT5: tick fetch returned None for {symbol}. Error: {mt5.last_error()}")
+        logger.error(f"MT5: tick fetch returned None for {found_symbol}. Error: {mt5.last_error()}")
         return None
 
     def place_limit_order(self, symbol, order_type, price, stop_loss, take_profit, volume, comment="Ekbottlebeer Bot"):

@@ -18,13 +18,18 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
 ### 🧠 The Brain (Logic)
 **Goal**: Process data and make high-probability decisions.
 - **Strategy** (`src/strategy/smc_logic.py`):
-  1.  **HTF Sweep Filter**: Detects liquidity sweeps on the 1H timeframe. **Smartly identifies Double Tops/Bottoms** (EQH/EQL) for A+ confirmation.
+  1.  **Refined HTF Sweep Filter** (CRITICAL):
+      - **Body Close Rule**: Sweep is ONLY valid if the candle body closes back *inside* the level. Acceptance outside invalidates.
+      - **Wick Proportion Filter**: The wick extending beyond the level must be **>= 30%** of the total candle length.
+      - **Time-to-Reclaim**: Price must trade back inside the swept level within **3 candles**.
+      - **Counter-Structure Break**: setup is KILLED if price breaks the "Extreme" (High/Low of sweep candle) before MSS.
+      - **EQH/EQL Detection**: Smartly identifies Double Tops/Bottoms for A+ confirmation.
   2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 4 hours).
-  3.  **RSI Confluence** (NEW):
+  3.  **RSI Confluence**:
       - **Longs**: RSI must be > 40 (Momentum) and < 70 (Not Overbought).
       - **Shorts**: RSI must be < 60 (Momentum) and > 30 (Not Oversold).
   4.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (for Longs) or **Premium** (for Shorts).
-  5.  **Spread Filter**: Automatically skips setups if spread > 5.0 (Protection against volatility).
+  5.  **Spread Filter**: Automatically skips setups if spread > 5.0.
 - **Risk Guardrails** (`src/risk/guardrails.py`):
   - **30/30 News Rule**: Avoids trading 30 mins before/after Red Folder events (USD).
   - **Session Lock**: Pauses trading if Max Session Loss is hit.

@@ -258,36 +258,44 @@ class TelegramBot:
                 context['state_manager'].save_state()
             return "▶️ **System Resumed**\nHunting for A+ Setups (All Markets)."
             
-        elif cmd == '/trail':
-             if not args: return "Usage: /trail [ON/OFF]"
-             mode = args.lower()
-             enabled = True if mode in ['on', 'true'] else False
+        elif cmd in ['/trail', '/trial']:
+             curr_mt5 = context['mt5_trade_manager'].trailing_enabled if context and 'mt5_trade_manager' in context else "N/A"
+             if not args: return f"🧗 **Trailing Stop Status**\nCurrent: {'ON' if curr_mt5 else 'OFF'}\nUsage: /trail [on/off]"
+             
+             mode = args.lower().strip()
+             enabled = True if mode in ['on', 'true', 'enable'] else False
              
              if context:
                  if 'mt5_trade_manager' in context: context['mt5_trade_manager'].set_trailing(enabled)
                  if 'bybit_trade_manager' in context: context['bybit_trade_manager'].set_trailing(enabled)
-                 return f"🧗 **Trailing Stop** set to: {enabled}"
+                 return f"🧗 **Trailing Stop** set to: {'ON' if enabled else 'OFF'}"
              return "⚠️ Helpers not available."
 
         # --- Risk & Setup ---
         elif cmd == '/risk':
-            if not args or not context or 'position_sizer' not in context: 
-                return "⚠️ Usage: /risk [0.5 - 2.0]"
+            curr_risk = context['position_sizer'].default_risk_pct if context and 'position_sizer' in context else "N/A"
+            if not args: 
+                return f"⚖️ **Current Risk**: {curr_risk}%\nUsage: /risk [amount]"
             try:
                 val = float(args)
-                context['position_sizer'].default_risk_pct = val
-                return f"⚖️ **Risk Adjusted**\nNew Risk Per Trade: {val}%"
+                if context and 'position_sizer' in context:
+                    context['position_sizer'].default_risk_pct = val
+                    return f"⚖️ **Risk Adjusted**\nNew Risk Per Trade: {val}%"
+                return "⚠️ Position sizer not ready."
             except:
                 return "⚠️ Invalid number."
             
         elif cmd == '/maxloss':
-            if context and 'risk_manager' in context and args:
+            curr_max = context['risk_manager'].max_session_loss if context and 'risk_manager' in context else "N/A"
+            if not args:
+                return f"🛑 **Current Max Session Loss**: ${curr_max}\nUsage: /maxloss [amount]"
+            if context and 'risk_manager' in context:
                 try:
                     context['risk_manager'].max_session_loss = float(args)
                     return f"🛑 **Max Session Loss** updated to ${args}"
                 except:
                    return "⚠️ Invalid amount."
-            return "Usage: /maxloss [AMOUNT]"
+            return "⚠️ Risk manager not available."
 
         elif cmd == '/news':
             if context and 'risk_manager' in context:
@@ -344,7 +352,22 @@ class TelegramBot:
              return "❌ Test trade management not linked to specific ID yet."
              
         elif cmd == '/strategy':
-            return "📘 **A+ Operator Strategy**\n1. HTF Sweep (1H/4H)\n2. LTF MSS (5M)\n3. FVG Entry (Premium/Discount)"
+            return (
+                "📘 **Ekbottlebeer A+ Operator Strategy Table**\n\n"
+                "**1. Refined HTF Sweep Filter (1H):**\n"
+                "• **Body Close Rule**: Sweep is ONLY valid if the candle body closes back inside the level. Acceptance outside invalidates.\n"
+                "• **Wick Proportion**: Wick beyond level must be >= 30% of total candle length.\n"
+                "• **Time-to-Reclaim**: Price must trade back inside level within 3 candles.\n"
+                "• **Counter-Structure**: Setup is KILLED if price breaks the 'Extreme' before MSS.\n\n"
+                "**2. LTF MSS (5m):**\n"
+                "• Must occur within 4 hours of sweep.\n\n"
+                "**3. RSI Confluence:**\n"
+                "• **Longs**: RSI > 40 (Momentum) and < 70 (No Overbought).\n"
+                "• **Shorts**: RSI < 60 (Momentum) and > 30 (No Oversold).\n\n"
+                "**4. FVG Entry:**\n"
+                "• Discount (Longs) or Premium (Shorts).\n"
+                "• Spread must be < 5.0."
+            )
 
         else:
             return "❓ Unknown command. Check Menu."
