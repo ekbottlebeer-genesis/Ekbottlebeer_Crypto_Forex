@@ -17,17 +17,11 @@ from src.risk.guardrails import RiskGuardrails
 from src.utils.visualizer import Visualizer
 
 # Setup logging
-# Setup logging (File Only for INFO, Console for Critical)
+# Setup logging
 logging.basicConfig(
-    filename='bot_debug.log',
-    filemode='a',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-# Add Console Handler for CRITICAL/ERROR only
-console = logging.StreamHandler()
-console.setLevel(logging.ERROR)
-logging.getLogger('').addHandler(console)
 logger = logging.getLogger(__name__)
 
 # Custom Log Handler for Telegram /logs command
@@ -178,13 +172,9 @@ def main():
             
             # --- 2. Market Scan Loop ---
             
-            # Data Containers for TUI
-            bybit_rows = []
-            pepper_rows = []
-            
-            # Pre-calculation for Header
-            c_lst = [s for s in watchlist if s in session_manager.crypto_symbols]
-            f_lst = [s for s in watchlist if s not in session_manager.crypto_symbols]
+            # Print Header
+            t_str = datetime.now().strftime('%H:%M:%S')
+            print(f"\n[{t_str}] 🔍 Scanning {len(watchlist)} assets (Sessions: {', '.join(current_sessions)})...")
             
             for symbol in all_monitored_symbols:
                 # Bridge Selection
@@ -236,16 +226,12 @@ def main():
                 if symbol not in watchlist: continue
                 
                 if system_status == 'paused' or market_status == 'paused':
-                     status_line = f"⏸️ [PAUSED]"
-                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
-                     else: pepper_rows.append(f"{symbol:<10} | {status_line}")
+                     print(f"   ⏸️ {symbol:<10} | [PAUSED]")
                      continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
-                    status_line = f"🚫 [NEWS FILTER]"
-                    if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
-                    else: pepper_rows.append(f"{symbol:<10} | {status_line}")
+                    print(f"   🚫 {symbol:<10} | [NEWS FILTER]")
                     continue
                     
                 # 1.5. Spread Protection (Crucial for Scalping)
@@ -266,9 +252,7 @@ def main():
                 # Guardrails should handle the logic, we pass value.
                 
                 if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
-                     status_line = f"⚠️ [SPREAD HIGH] ({spread:.5f})"
-                     if symbol in session_manager.crypto_symbols: bybit_rows.append(f"{symbol:<10} | {status_line}")
-                     else: pepper_rows.append(f"{symbol:<10} | {status_line}")
+                     print(f"   ⚠️ {symbol:<10} | [SPREAD HIGH] ({spread:.5f})")
                      continue
                     
                 # 2. Fetch Data (HTF - 1H)
@@ -316,12 +300,7 @@ def main():
                          except:
                              pass
                     
-                    # Store for rendering
-                    row_str = f"{symbol:<10} | {status_line}"
-                    if symbol in session_manager.crypto_symbols:
-                        bybit_rows.append(row_str)
-                    else:
-                        pepper_rows.append(row_str)
+                    print(f"   📊 {symbol:<10} | {status_line}")
                 
                 if sweep['swept']:
                     logger.info(f"🚨 HTF Sweep Detected on {symbol}: {sweep['desc']} @ {sweep['level']}")
@@ -480,43 +459,7 @@ def main():
             
 
 
-            # --- RENDERING PHASE ---
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print(f"╔════════════════════════════════════════════════════════════╗")
-            print(f"║   THE A+ OPERATOR  v{VERSION:<10}  {datetime.now().strftime('%H:%M:%S'):>15}   ║")
-            print(f"╠════════════════════════════════════════════════════════════╣")
-            print(f"║ Sessions: {', '.join(current_sessions):<48} ║")
-            print(f"║ Watchlist: {len(watchlist):<3} assets                                    ║")
-            print(f"╚════════════════════════════════════════════════════════════╝")
-            
-            # Active Trades
-            if active_trades:
-                print(f"\n🔥 ACTIVE POSITIONS ({len(active_trades)}):")
-                for t in active_trades:
-                    pnl_color = "🟢" if t.get('pnl', 0) >= 0 else "🔴"
-                    print(f"   {pnl_color} {t['symbol']} {t['direction'].upper()} @ {t['entry_price']}")
-            
-            # Tables
-            print(f"\n💎 BYBIT (Crypto) ───────────────")
-            if bybit_rows:
-                for r in sorted(bybit_rows): print(f"   {r}")
-            else: print("   (No Active Symbols)")
-            
-            print(f"\n💱 PEPPERSTONE (Forex) ──────────")
-            if pepper_rows:
-                for r in sorted(pepper_rows): print(f"   {r}")
-            else: print("   (No Active Symbols)")
-
-            # Recent Events Log
-            print(f"\n📜 EVENT LOG (Last 5) ───────────")
-            logs = log_buffer.buffer[-5:]
-            for l in logs:
-                # Clean up timestamp for brevity
-                short_l = l.split(' - ')[-1] # Message only? Or keep time? 
-                # keep full log but maybe truncate length
-                print(f"   {l[:80]}...") 
-
-            time.sleep(3) # Refresh Rate
+            time.sleep(3) # Scan delay
             
     except KeyboardInterrupt:
         logger.info("Shutdown signal received.")
