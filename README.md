@@ -18,32 +18,37 @@ The bot is designed as a modular organism, adhering to the "Eye, Brain, Hand, Mo
 ### 🧠 The Brain (Logic)
 **Goal**: Process data and make high-probability decisions.
 - **Strategy** (`src/strategy/smc_logic.py`):
-  1.  **HTF Sweep Filter**: Detects liquidity sweeps on the 1H timeframe (50-bar lookback).
+  1.  **HTF Sweep Filter**: Detects liquidity sweeps on the 1H timeframe. **Smartly identifies Double Tops/Bottoms** (EQH/EQL) for A+ confirmation.
   2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 1 hour).
   3.  **FVG Entry**: Hunts for Fair Value Gaps in **Discount** (for Longs) or **Premium** (for Shorts).
+  4.  **Spread Filter**: Automatically skips setups if spread > 5.0 (Protection against volatility).
 - **Risk Guardrails** (`src/risk/guardrails.py`):
-  - **30/30 News Rule**: Avoids trading 30 mins before/after Red Folder events.
+  - **30/30 News Rule**: Avoids trading 30 mins before/after Red Folder events (USD).
+  - **News Toggle**: Manually override news logic with `/newsmode`.
   - **Session Lock**: Pauses trading if Max Session Loss is hit.
 
 ### ✋ The Hand (Execution)
 **Goal**: Execute and manage trades with surgical precision.
 - **Position Sizing** (`src/risk/position_sizer.py`):
   - Calculates exact Lot Sizes (Forex) or Contract Units (Crypto).
-  - **Auto-Normalization**: Handles `Volume Step` (e.g., 0.01 vs 1.0) and `Contract Size` (100k vs 1) automatically.
+  - **Half-Risk Rescue**: If an order is rejected (Margin/Leverage), the bot **instantly retries at 50% risk**.
   - Enforces **Minimum 2.0 Risk:Reward**.
 - **Trade Manager** (`src/strategy/trade_manager.py`):
+  - **Smart Structural Exit**: Scans 5m structure every 5s. If a candle strictly closes against the trend structure, **exits immediately** (Market Close) to save capital.
+  - **Safety Retry**: If a modification fails (latency), retries 3x before alerting.
   - **Lifecycle**:
     - **1.5R**: Move Stop Loss to Break-Even + 0.25R.
     - **2.0R**: Close 30% of position (Partial Profit).
-    - **>2.0R**: **Trailing Stop** kicks in, trailing behind the High/Low of the last 3 closed candles.
+    - **>2.0R**: **Trailing Stop** kicks in, following market structure.
 
 ### 🗣 The Mouth (Communication)
 **Goal**: Communicate status and signals clearly.
 - **Channels**:
   - **Control Room**: Your main bot chat for logs and commands.
-  - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts (Entry, SL, TP, RR).
+  - **Signal Channel**: Dedicated channel for 💎 **A+ Setup** Alerts.
 - **Commands**:
   - `/status`: Check System Heartbeat.
+  - `/newsmode [on/off]`: Toggle the News Filter.
   - `/chart [SYMBOL]`: Request a visual analysis chart.
   - `/panic`: **KILL SWITCH**. Closes all positions immediately.
   - `/maxloss [AMOUNT]`: Set a session loss limit on the fly.

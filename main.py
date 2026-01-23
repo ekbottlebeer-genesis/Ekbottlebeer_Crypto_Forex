@@ -71,8 +71,8 @@ def main():
     bot.send_message("✅ Bybit Bridge Initialized")
     
     # Initialize Trade Managers for each bridge
-    mt5_trade_manager = TradeManager(mt5_bridge, state_manager)
-    bybit_trade_manager = TradeManager(bybit_bridge, state_manager)
+    mt5_trade_manager = TradeManager(mt5_bridge, state_manager, smc_logic=smc, telegram_bot=bot)
+    bybit_trade_manager = TradeManager(bybit_bridge, state_manager, smc_logic=smc, telegram_bot=bot)
 
     # 4. Main Loop
     logger.info("System initialized. Entering main loop...")
