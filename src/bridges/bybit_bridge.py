@@ -11,24 +11,12 @@ class BybitBridge:
         api_key = os.getenv("BYBIT_API_KEY")
         api_secret = os.getenv("BYBIT_API_SECRET")
         
-        # User explicitly requested "Not Testnet" but "Demo"
-        # Bybit Demo Trading usually uses 'api-demo.bybit.com'
+        # Bybit Demo Trading (Unified Account on specific api-demo subdomain)
         demo_trading = os.getenv("BYBIT_DEMO", "False").lower() == "true"
         
         if demo_trading:
-            # Demo Mode: Standard Testnet=False (to avoid api-testnet), but override domain/endpoint
             logger.info("Configuring for Bybit DEMO Trading (api-demo.bybit.com)...")
             testnet = False 
-            # Pybit usually allows 'domain' or 'endpoint'. 
-            # We will try passing 'domain="demo"' if Pybit constructs 'api-{domain}.bybit.com' or similar?
-            # Or assume recent Pybit V5 versions might handle 'demo=True'? No, not standard.
-            # Best guess for Pybit: It uses 'suffix' or we must hack imports?
-            # Actually, looking at common Pybit usage, it accepts arguments that it passes to request builder.
-            # Let's try passing 'domain' argument which usually defaults to 'bybit'. 
-            # If we pass 'demo', it might work if logic is f"api{'-'+domain if domain...}".
-            # SAFEST: Pass 'testnet=False' and expect 'BYBIT_DEMO' to be used elsewhere? 
-            # No, we need to affect the session.
-            # Let's try `endpoint="https://api-demo.bybit.com"` if Pybit HTTP accepts it.
         else:
             testnet = os.getenv("BYBIT_TESTNET", "True").lower() == "true"
         
@@ -44,8 +32,8 @@ class BybitBridge:
                 }
                 
                 if demo_trading:
-                    # Bybit Unified Demo Endpoint
-                    kwargs['domain'] = 'demo' # Often maps to api-demo.bybit.com in pybit
+                    # In pybit V5, use demo=True for Demo Trading
+                    kwargs['demo'] = True
                 
                 self.session = HTTP(**kwargs)
                 logger.info(f"Bybit Session Initialized (Testnet: {testnet}, Demo: {demo_trading})")
@@ -266,8 +254,10 @@ class BybitBridge:
         if not self.session: return 0.0
         try:
              # For Unified Account, USDT is often the base.
-             # We try to get the balance for USDT specifically first.
              resp = self.session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
+             
+             # PHASE 13 TRACING
+             logger.info(f"DEBUG: Bybit Balance Response: retCode={resp.get('retCode')}, retMsg={resp.get('retMsg')}")
              
              if resp['retCode'] == 0:
                  acc_list = resp['result']['list']
@@ -275,15 +265,19 @@ class BybitBridge:
                      acc = acc_list[0]
                      # totalEquity is the total account value in USD
                      equity = float(acc.get('totalEquity', 0))
+                     logger.info(f"DEBUG: Bybit Total Equity Found: {equity}")
+                     
                      if equity > 0: return equity
                      
                      # If totalEquity is 0, check specific coin equity or wallet balance
                      coin_list = acc.get('coin', [])
                      for c in coin_list:
+                         logger.info(f"DEBUG: Bybit Coin Balance: {c.get('coin')} = {c.get('walletBalance')}")
                          if c['coin'] == 'USDT':
                              return float(c.get('equity', c.get('walletBalance', 0)))
-                 
-             logger.warning(f"Bybit Balance Fetch returned 0 or error: {resp.get('retMsg', 'Unknown')}")
+                 else:
+                     logger.warning("Bybit: Account list in balance response is empty.")
+             
              return 0.0
         except Exception as e:
              logger.error(f"Error fetching Bybit balance: {e}")
