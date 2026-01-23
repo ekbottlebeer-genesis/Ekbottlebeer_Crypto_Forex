@@ -15,6 +15,7 @@ from src.risk.position_sizer import PositionSizer
 from src.strategy.smc_logic import SMCLogic
 from src.risk.guardrails import RiskGuardrails
 from src.utils.visualizer import Visualizer
+from src.communication.telegram_handler import TelegramErrorHandler
 
 # --- HELPER: Telegram Command Processing ---
 def process_telegram_updates(bot, last_id, context):
@@ -114,6 +115,11 @@ def main():
     risk = RiskGuardrails(state_manager)
     visualizer = Visualizer()
     position_sizer = PositionSizer()
+
+    # Initialize Proactive Error Alerting
+    error_handler = TelegramErrorHandler(bot)
+    error_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(error_handler)
 
     bot.send_message(f"🚀 System Initializing: The Ekbottlebeer A+ Operator\n📦 **Version**: `{VERSION}`")
 

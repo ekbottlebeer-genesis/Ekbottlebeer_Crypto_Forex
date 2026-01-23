@@ -12,17 +12,21 @@ class BybitBridge:
         api_secret = os.getenv("BYBIT_API_SECRET")
         
         # FORCE RE-LOAD check for BYBIT_DEMO
-        demo_trading = os.getenv("BYBIT_DEMO", "False").strip().lower() == "true"
+        # Use strip() to handle any trailing spaces in .env
+        env_demo = str(os.getenv("BYBIT_DEMO", "False")).strip().lower()
+        demo_trading = (env_demo == "true")
         
+        env_testnet = str(os.getenv("BYBIT_TESTNET", "False")).strip().lower()
+        testnet = (env_testnet == "true")
+
+        # CRITICAL OVERRIDE: If Demo is True, Testnet MUST be False
         if demo_trading:
-            logger.info("Configuring for Bybit DEMO Trading (api-demo.bybit.com)...")
-            testnet = False 
+            testnet = False
+            logger.info("🛠 Bybit Mode: DEMO TRADING (api-demo.bybit.com)")
+        elif testnet:
+            logger.info("🛠 Bybit Mode: TESTNET")
         else:
-            testnet = os.getenv("BYBIT_TESTNET", "True").strip().lower() == "true"
-        
-        # Log detected values for visibility
-        logger.info(f"PROBING: BYBIT_DEMO env is '{os.getenv('BYBIT_DEMO')}' -> demo={demo_trading}")
-        logger.info(f"PROBING: BYBIT_TESTNET env is '{os.getenv('BYBIT_TESTNET')}' -> testnet={testnet}")
+            logger.info("🛠 Bybit Mode: LIVE MAINNET")
         
         self.session = None
         self._instruments_cache = {} 
@@ -32,15 +36,12 @@ class BybitBridge:
                 kwargs = {
                     'testnet': testnet,
                     'api_key': api_key,
-                    'api_secret': api_secret
+                    'api_secret': api_secret,
+                    'demo': demo_trading
                 }
                 
-                if demo_trading:
-                    # In pybit V5, use demo=True for Demo Trading
-                    kwargs['demo'] = True
-                
                 self.session = HTTP(**kwargs)
-                logger.info(f"Bybit Session Initialized (Testnet: {testnet}, Demo: {demo_trading})")
+                logger.info(f"Bybit Session Initialized successfully.")
             except Exception as e:
                 logger.error(f"Failed to initialize Bybit session: {e}")
 
