@@ -180,15 +180,21 @@ class TelegramBot:
                 return f"🔍 **Market Pulse**\nSessions: {', '.join(info['sessions'])}\nWatchlist: {len(info['watchlist'])}\nBias: Mixed (Scan Active)"
             return "Scanning markets..."
             
-        elif cmd == '/status':
+        elif cmd in ['/status', '/check']:
             mt5_bal = context['mt5_bridge'].get_balance() if context and 'mt5_bridge' in context else "N/A"
             bybit_bal = context['bybit_bridge'].get_balance() if context and 'bybit_bridge' in context else "N/A"
-            return f"💰 **Wallet Status**\nMT5 Equity: ${mt5_bal}\nBybit Equity: ${bybit_bal}"
-            
-        elif cmd == '/check':
             mt5_ok = context['mt5_bridge'].connected if context and 'mt5_bridge' in context else False
             bybit_ok = context['bybit_bridge'].session is not None if context and 'bybit_bridge' in context else False
-            return f"✅ **Diagnostics**\nMT5 Bridge: {'🟢' if mt5_ok else '🔴'}\nBybit Bridge: {'🟢' if bybit_ok else '🔴'}\nServer Heartbeat: Active"
+            
+            return (
+                f"💰 **Wallet Status**\n"
+                f"MT5 Equity: ${mt5_bal}\n"
+                f"Bybit Equity: ${bybit_bal}\n\n"
+                f"✅ **Diagnostics**\n"
+                f"MT5 Bridge: {'🟢' if mt5_ok else '🔴'}\n"
+                f"Bybit Bridge: {'🟢' if bybit_ok else '🔴'}\n"
+                f"Heartbeat: Active"
+            )
             
         elif cmd == '/logs':
             if context and 'logger_buffer' in context:
@@ -229,7 +235,7 @@ class TelegramBot:
             return "📷 Visualizer not available."
 
         # --- Trade Mgmt ---    
-        elif cmd == '/positions':
+        elif cmd in ['/position', '/positions']:
             if context and 'state_manager' in context:
                 trades = context['state_manager'].state.get('active_trades', [])
                 if not trades: return "🚫 No Open Positions."
@@ -301,23 +307,32 @@ class TelegramBot:
             return "❌ Usage: /newsmode [on/off]"
 
         # --- Testing ---
-        elif cmd == '/test':
-             if not args: return "Usage: /test [SYMBOL]"
-             symbol = args.upper()
+        elif cmd == '/test' or (cmd.startswith('/') and context and any(cmd[1:].upper() == s for s in context['session_manager'].crypto_symbols + list(context['session_manager'].get_current_session_info()['watchlist']))):
+             symbol = args.upper() if cmd == '/test' else cmd[1:].upper()
+             if not symbol: return "Usage: /test [SYMBOL]"
+             
              bridge = None
              if context and 'session_manager' in context:
                  bridge = context['bybit_bridge'] if symbol in context['session_manager'].crypto_symbols else context['mt5_bridge']
             
              if not bridge: return "Bridge not found."
              
+             # Fetch instrument info for minimum volume
+             info = bridge.get_instrument_info(symbol)
+             test_vol = info['min_volume'] if info else 0.001
+             
              if 'bybit' in str(type(bridge)).lower():
-                 bridge.place_order(symbol, 'Buy', 'Market', 0.001)
+                 res = bridge.place_order(symbol, 'Buy', 'Market', test_vol)
+                 if not res: return f"❌ **Test Failed**: Order rejected by Bybit. Check if {symbol} is valid or margin is low."
              else:
                  tick = bridge.get_tick(symbol)
                  if tick:
-                     bridge.place_limit_order(symbol, 'buy_limit', tick['ask'], tick['ask']-0.00100, tick['ask']+0.00200, 0.01)
-                     
-             return f"🧪 **Test Entry Sent**: {symbol} (Check platform)"
+                     res = bridge.place_limit_order(symbol, 'buy_limit', tick['ask'], tick['ask']-0.00100, tick['ask']+0.00200, test_vol)
+                     if not res: return f"❌ **Test Failed**: MT5 rejected the order."
+                 else:
+                     return f"❌ **Test Failed**: Could not get tick from MT5."
+                      
+             return f"🧪 **Test Entry Sent**: {symbol} (Qty: {test_vol})\nCheck platform for execution confirmation."
              
         elif cmd == '/canceltest':
              return "❌ Test trade management not linked to specific ID yet."

@@ -33,6 +33,7 @@ class BybitBridge:
             testnet = os.getenv("BYBIT_TESTNET", "True").lower() == "true"
         
         self.session = None
+        self._instruments_cache = {} 
         if api_key and api_secret:
             try:
                 # Construct args
@@ -53,18 +54,32 @@ class BybitBridge:
 
     def get_instrument_info(self, symbol):
         """
-        Returns constraints. Bybit Linear usually 1 contract = 1 Coin (or unit).
-        We should fetch 'lotSizeFilter' from instruments-info if strict.
-        For demo/speed, we assume standard steps (e.g. 0.001 for BTC).
+        Fetches real instrument info from Bybit and caches it.
         """
-        # Ideally fetch from self.session.get_instruments_info(...)
-        # Stub for robustness:
-        return {
-            'contract_size': 1.0, 
-            'min_volume': 0.001, # Safe default for crypto
-            'max_volume': 1000.0,
-            'volume_step': 0.001 
-        }
+        if symbol in self._instruments_cache:
+            return self._instruments_cache[symbol]
+
+        if not self.session:
+            return {'contract_size': 1.0, 'min_volume': 0.001, 'max_volume': 1000.0, 'volume_step': 0.001}
+
+        try:
+            resp = self.session.get_instruments_info(category="linear", symbol=symbol)
+            if resp['retCode'] == 0:
+                item = resp['result']['list'][0]
+                filters = item['lotSizeFilter']
+                info = {
+                    'contract_size': 1.0,
+                    'min_volume': float(filters['minOrderQty']),
+                    'max_volume': float(filters['maxOrderQty']),
+                    'volume_step': float(filters['qtyStep']),
+                    'price_precision': int(item['priceScale'])
+                }
+                self._instruments_cache[symbol] = info
+                return info
+        except Exception as e:
+            logger.error(f"Error fetching Bybit instrument info for {symbol}: {e}")
+        
+        return {'contract_size': 1.0, 'min_volume': 0.001, 'max_volume': 1000.0, 'volume_step': 0.001}
 
     def get_candles(self, symbol, timeframe, num_candles=200):
         """
@@ -87,6 +102,9 @@ class BybitBridge:
             # Process response to DataFrame
             if response['retCode'] == 0:
                 data = response['result']['list']
+                if not data:
+                    logger.warning(f"Bybit: No candles found for {symbol}. Check if symbol is correct and you have trading permissions.")
+                    return None
                 # Bybit returns: [startTime, open, high, low, close, volume, turnover]
                 # Note: list is in reverse order (newest first)
                 df = pd.DataFrame(data, columns=['time', 'open', 'high', 'low', 'close', 'volume', 'turnover'])
@@ -94,7 +112,10 @@ class BybitBridge:
                 df = df.astype({'open': 'float', 'high': 'float', 'low': 'float', 'close': 'float', 'volume': 'float'})
                 return df.iloc[::-1] # Reverse to have oldest first
             else:
-                logger.error(f"Bybit API Error: {response['retMsg']}")
+                msg = response['retMsg']
+                logger.error(f"Bybit API Error: {msg}")
+                if "10001" in str(response['retCode']):
+                    logger.error("TIP: Parameter error. Check if BYBIT_DEMO=True matches your account type.")
                 return None
         except Exception as e:
             logger.error(f"Error fetching Bybit candles: {e}")
