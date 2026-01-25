@@ -36,27 +36,17 @@ pause
 exit
 
 :check_env
-echo [WATCHDOG] using command: %PYTHON_CMD%
+echo [WATCHDOG] Using command: %PYTHON_CMD%
 
 :: --- 1. CONFIGURATION CHECK ---
 if not exist ".env" (
-    echo [WATCHDOG] .env file MISSING!
+    echo [WATCHDOG] .env file MISSING.
     if exist ".env.example" (
-        echo [WATCHDOG] Creating .env from template...
+        echo [WATCHDOG] Auto-creating .env from template...
         copy ".env.example" ".env" >nul
-        echo.
-        echo [IMPORTANT] STOP!
-        echo.
-        echo A new ".env" file has been created.
-        echo You MUST open it now and add your API KEYS! 
-        echo (Telegram - Bybit - MT5)
-        echo.
-        echo Press any key ONLY after you have saved your keys...
-        pause
+        echo [WATCHDOG] PLEASE REMEMBER TO EDIT .env WITH YOUR KEYS!
     ) else (
-        echo [ERROR] .env.example is missing! Cannot create config.
-        pause
-        exit
+        echo [WATCHDOG] No .env.example found. Skipping config creation.
     )
 )
 
