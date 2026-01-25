@@ -49,8 +49,8 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 
 | **Command** | **Action** |
 | --- | --- |
-| `/scan` | **Master Dashboard**: View Trend Bias, RSI, checklist progress, and exact levels the bot is hunting. |
-| `/status` | **Wallet & Health**: Check Real-time Equity (Demo/Live), connection stats, and bridge latency. |
+| `/scan` | **Market Pulse**: Clean view of Trend Bias, RSI, and Waiting Status for all assets. |
+| `/status` | **Master Dashboard**: View Wallet Equity, Diagnostics, AND **Active Configuration** (Risk/News/Sessions). |
 | `/open` | **Live Positions**: Fetches *True* Broker Positions directly from Bybit/MT5 API (Bypasses local cache). |
 | `/strategy` | **Rules Cheat Sheet**: Displays the exact A+ Operator logic. |
 | `/risk [val]` | **Adjust Risk**: Set % per trade (e.g., `/risk 1.0`). |
