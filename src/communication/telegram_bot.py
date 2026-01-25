@@ -533,7 +533,11 @@ class TelegramBot:
             logger.error(f"Failed to send Telegram message to {target_chat}: {e}")
             if "400" in str(e):
                 logger.error(f"DEBUG: Payload was: {payload}")
-                logger.error("TIP: Ensure Chat ID is correct (Start with -100 for Channels) and Bot is Admin.")
+                if str(target_chat).startswith('+'):
+                    logger.error("❌ CRITICAL: Your TELEGRAM_SIGNAL_CHANNEL_ID is an INVITE LINK (+...).")
+                    logger.error("   It MUST be a numeric ID starting with -100 or a public @channelname.")
+                else:
+                    logger.error("TIP: Ensure Chat ID is correct (Start with -100 for Channels) and Bot is Admin.")
             return False
 
     def send_signal(self, message):

@@ -16,8 +16,8 @@ class BybitBridge:
         env_demo = str(os.getenv("BYBIT_DEMO", "False")).upper()
         env_testnet = str(os.getenv("BYBIT_TESTNET", "False")).upper()
         
-        self.demo_trading = (env_demo == "TRUE")
-        self.testnet = (env_testnet == "TRUE")
+        self.demo_trading = ("TRUE" in env_demo or "DEMO" in env_demo)
+        self.testnet = ("TRUE" in env_testnet or "TESTNET" in env_testnet)
         
         # LOGGING (Crucial for Debugging)
         logger.info(f"🔧 BRIDGE CONFIG: DEMO={self.demo_trading} | TESTNET={self.testnet}")
