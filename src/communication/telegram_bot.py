@@ -101,7 +101,8 @@ class TelegramBot:
                 '/pausecrypto': "Pause Crypto Markets",
                 '/pauseforex': "Pause Forex Markets",
                 '/open': "Show LIVE Open Positions (Direct from Broker)",
-                '/testsignalmessage': "Test Signal Channel Broadcast"
+                '/testsignalmessage': "Test Signal Channel Broadcast",
+                '/debugbybit': "Deep Diagnostic for Bybit Connection"
             }
             return f"⚠️ **CONFIRMATION REQUIRED**\nActon: {desc.get(cmd, cmd)}\nType `YES_Sure` to proceed."
             
@@ -271,6 +272,40 @@ class TelegramBot:
                 return "🧘 **Flat**: No open positions found on connected brokers."
             
             return msg
+
+        elif cmd == '/debugbybit':
+            if not context or 'bybit_bridge' not in context:
+                return "❌ Bybit Bridge not initialized."
+            
+            bridge = context['bybit_bridge']
+            if not bridge.session:
+                return "❌ Bybit Session is NULL. Check API Keys in .env"
+                
+            report = "🛠 **Bybit Deep Diagnostic**\n\n"
+            report += f"Endpoint: `{bridge.session.domain}`\n"
+            
+            # 1. Test Wallet Balance (Unified)
+            try:
+                bal_resp = bridge.session.get_wallet_balance(accountType="UNIFIED")
+                report += f"**UNIFIED Balance Response**:\n`{str(bal_resp)[:500]}`\n\n"
+            except Exception as e:
+                report += f"**UNIFIED Error**: `{str(e)}`\n"
+
+            # 2. Test Wallet Balance (Contract)
+            try:
+                con_resp = bridge.session.get_wallet_balance(accountType="CONTRACT")
+                report += f"**CONTRACT Balance Response**:\n`{str(con_resp)[:500]}`\n\n"
+            except Exception as e:
+                report += f"**CONTRACT Error**: `{str(e)}`\n"
+                
+            # 3. Test Positions
+            try:
+                pos_resp = bridge.session.get_positions(category="linear", settleCoin="USDT")
+                report += f"**Linear Positions Response**:\n`{str(pos_resp)[:500]}`\n"
+            except Exception as e:
+                report += f"**Positions Error**: `{str(e)}`\n"
+
+            return report + "\n⚠️ *Note*: Output truncated to 500 chars per block."
             
         elif cmd == '/logs':
             if context and 'logger_buffer' in context:
