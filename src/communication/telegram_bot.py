@@ -243,13 +243,19 @@ class TelegramBot:
                 f"Heartbeat: Active\n"
             )
             
-            # --- MERGED CONFIGURATION (Moved from /scan) ---
-            msg += "---\n⚙️ **Active Configuration**\n"
+            # --- CONFIGURATION (Detailed View) ---
+            msg += "\n⚙️ **Active Configuration**\n\n"
             
             # Gather Data
             sys_status = "Unknown"
+            crypto_status = "Unknown" 
+            forex_status = "Unknown"
+            
             if context and 'state_manager' in context:
-                 sys_status = context['state_manager'].state.get('system_status', 'Unknown')
+                 st = context['state_manager'].state
+                 sys_status = st.get('system_status', 'Unknown')
+                 crypto_status = st.get('crypto_status', 'Unknown')
+                 forex_status = st.get('forex_status', 'Unknown')
                  
             risk_pct = context['position_sizer'].default_risk_pct if 'position_sizer' in context else "N/A"
             max_loss = context['risk_manager'].max_session_loss if 'risk_manager' in context else "N/A"
@@ -265,9 +271,18 @@ class TelegramBot:
                session_str = ", ".join(s_info['sessions']) if s_info['sessions'] else "None"
                session_info = f"{session_str} (UTC {s_info['utc_hour']}:00)"
             
-            msg += f"**Status**: `{sys_status.upper()}` | **Session**: `{session_info}`\n"
-            msg += f"**Risk**: `{risk_pct}%` | **MaxLoss**: `${max_loss}`\n"
-            msg += f"**News**: `{'ON' if news_mode else 'OFF'}` | **Trail**: `{trailing}`"
+            msg += f"**System Status**: `{sys_status.upper()}`\n"
+            msg += f"• **Crypto Scanning**: `{crypto_status.upper()}`\n"
+            msg += f"• **Forex Scanning**: `{forex_status.upper()}`\n\n"
+            
+            msg += "**Risk Management**\n"
+            msg += f"• **Risk Per Trade**: `{risk_pct}%`\n"
+            msg += f"• **Max Session Loss**: `${max_loss}`\n"
+            msg += f"• **News Filter**: `{'ON' if news_mode else 'OFF'}`\n"
+            msg += f"• **Trailing Stop**: `{trailing}`\n\n"
+            
+            msg += "**Market Context**\n"
+            msg += f"• **Active Sessions**: `{session_info}`\n"
             
             return msg
 
