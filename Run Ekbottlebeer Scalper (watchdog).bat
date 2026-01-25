@@ -3,23 +3,26 @@ title The Watchdog - A+ Operator
 color 0A
 
 echo [WATCHDOG] INITIALIZING...
+echo [DEBUG] Starting up...
+REM Pause here to catch immediate startup errors if any
+timeout /t 1 >nul
 
-:: --- DETECT PYTHON COMMAND ---
-:: Try 'python' first
+REM --- DETECT PYTHON COMMAND ---
+REM Try 'python' first
 python --version >nul 2>&1
 if %errorlevel% equ 0 (
     set PYTHON_CMD=python
     goto :check_env
 )
 
-:: Try 'py' (Windows Launcher)
+REM Try 'py' (Windows Launcher)
 py --version >nul 2>&1
 if %errorlevel% equ 0 (
     set PYTHON_CMD=py
     goto :check_env
 )
 
-:: IF WE GET HERE, PYTHON IS MISSING
+REM IF WE GET HERE, PYTHON IS MISSING
 echo.
 echo [ERROR] SYSTEM PATH ISSUE DETECTED!
 echo ----------------------------------------------------
@@ -38,7 +41,7 @@ exit
 :check_env
 echo [WATCHDOG] Using command: %PYTHON_CMD%
 
-:: --- 1. CONFIGURATION CHECK ---
+REM --- 1. CONFIGURATION CHECK ---
 if not exist ".env" (
     echo [WATCHDOG] .env file MISSING.
     if exist ".env.example" (
@@ -54,46 +57,46 @@ if not exist ".env" (
 echo ------------------------------------
 echo [WATCHDOG] Checking for updates...
 
-:: 2. Cleanup Stale Processes
+REM 2. Cleanup Stale Processes
 taskkill /F /IM python.exe /FI "WINDOWTITLE ne The Watchdog*" >nul 2>&1
 
-:: 3. CODE SYNC (SAFE MODE)
+REM 3. CODE SYNC (SAFE MODE)
 echo [WATCHDOG] Syncing with repository...
 git pull
 
-:: 4. Environment Setup (Auto-Venv)
+REM 4. Environment Setup (Auto-Venv)
 if not exist ".venv" (
     echo [WATCHDOG] Creating Virtual Environment (.venv)...
     %PYTHON_CMD% -m venv .venv
 )
 
-:: Activate VENV
-if exist .venv\Scripts\activate.bat (
-    call .venv\Scripts\activate.bat
+REM Activate VENV
+if exist ".venv\Scripts\activate.bat" (
+    call ".venv\Scripts\activate.bat"
     echo [WATCHDOG] VENV Activated.
 ) else (
     echo [WATCHDOG] WARNING: .venv corrupt? Using global python.
 )
 
-:: 5. Install Dependencies
+REM 5. Install Dependencies
 echo [WATCHDOG] Checking/Installing requirements...
-python -m pip install -r requirements.txt --upgrade
+%PYTHON_CMD% -m pip install -r requirements.txt --upgrade
 
-:: 6. SYSTEM DIAGNOSTICS
+REM 6. SYSTEM DIAGNOSTICS
 echo [WATCHDOG] Running Pre-Flight Diagnostics...
 echo ---------------------------------------------------
-python debug_mt5.py
+%PYTHON_CMD% debug_mt5.py
 echo ---------------------------------------------------
-python debug_bybit_v2.py
+%PYTHON_CMD% debug_bybit_v2.py
 echo ---------------------------------------------------
 echo [WATCHDOG] Diagnostics Complete.
 
-:: 7. Launch The Brain
-echo [WATCHDOG] 🚀 Launching Bot...
+REM 7. Launch The Brain
+echo [WATCHDOG] Launching Bot...
 timeout /t 3
-python main.py
+%PYTHON_CMD% main.py
 
-:: 8. Crash Recovery
+REM 8. Crash Recovery
 echo [WATCHDOG] X Bot process ended.
 echo [WATCHDOG] Restarting in 5 seconds...
 timeout /t 5
