@@ -73,6 +73,16 @@ class Visualizer:
                             hlines.append(price)
                             h_colors.append('#ffd600') # Gold Sweep
                             h_styles.append('-')
+                
+                if 'mss' in zones:
+                     # Check if it's a list or single dict
+                     mss_zones = zones['mss'] if isinstance(zones['mss'], list) else [zones['mss']]
+                     for m_zone in mss_zones:
+                         price = m_zone.get('level', m_zone.get('price'))
+                         if price:
+                             hlines.append(price)
+                             h_colors.append('#ffffff') # White MSS
+                             h_styles.append('--')      # Dashed
 
             # Basic Plotting Arguments
             kwargs = dict(

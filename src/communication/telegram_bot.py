@@ -340,16 +340,36 @@ class TelegramBot:
 
             if df_5m is None or df_5m.empty: return f"⚠️ No data returned for {symbol}."
 
-            if context and 'visualizer' in context:
-                # Calculate HTF levels
+            if context and 'visualizer' in context and 'smc' in context:
+                # Calculate HTF levels & Sweeps
+                smc = context['smc']
                 zones = {}
+                
                 if df_1h is not None and not df_1h.empty:
+                    # 1. HTF Ranges
                     zones['htf'] = {
                         '1H_high': df_1h['high'].tail(24).max(),
                         '1H_low': df_1h['low'].tail(24).min(),
                         '4H_high': df_1h['high'].tail(48).max(),
                         '4H_low': df_1h['low'].tail(48).min()
                     }
+                    
+                    # 2. HTF Sweeps
+                    sweep_res = smc.detect_htf_sweeps(df_1h)
+                    if sweep_res.get('swept'):
+                        zones['sweeps'] = [{'price': sweep_res['level'], 'desc': sweep_res['desc']}]
+                        
+                        # 3. If Swept, Check MSS Logic
+                        if df_5m is not None and not df_5m.empty:
+                            bias = sweep_res['side'] # 'buy_side' sweep -> bearish bias
+                            mss_res = smc.detect_mss(df_5m, bias, sweep_res['sweep_candle_time'])
+                            
+                            if mss_res.get('mss'):
+                                # Confirmed MSS
+                                zones['mss'] = [{'level': mss_res['level'], 'desc': 'MSS Confirmed'}]
+                            elif 'trigger_level' in mss_res:
+                                # Pending MSS (Show trigger line)
+                                zones['mss'] = [{'level': mss_res['trigger_level'], 'desc': 'MSS Wait'}]
 
                 img_path = context['visualizer'].generate_chart(df_5m, symbol, zones=zones, filename=f"{symbol}_detailed.png")
                 if img_path and os.path.exists(img_path):
