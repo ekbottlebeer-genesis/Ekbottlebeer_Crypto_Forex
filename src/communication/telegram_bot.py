@@ -530,7 +530,10 @@ class TelegramBot:
             logger.info(f"Telegram message sent to {target_chat}: {message[:20]}...")
             return True
         except Exception as e:
-            logger.error(f"Failed to send Telegram message: {e}")
+            logger.error(f"Failed to send Telegram message to {target_chat}: {e}")
+            if "400" in str(e):
+                logger.error(f"DEBUG: Payload was: {payload}")
+                logger.error("TIP: Ensure Chat ID is correct (Start with -100 for Channels) and Bot is Admin.")
             return False
 
     def send_signal(self, message):

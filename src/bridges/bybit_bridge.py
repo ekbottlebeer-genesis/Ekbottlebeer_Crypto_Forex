@@ -313,11 +313,18 @@ class BybitBridge:
                         
                         # 2. Check individual coin break-out
                         coin_list = acc.get('coin', [])
+                        # LOG FULL RESPONSE FOR DEBUGGING
+                        logger.debug(f"DEBUG {acc_type} COINS: {coin_list}") 
+                        
                         for c in coin_list:
+                            # Unified Account often reports 'walletBalance' or 'equity' per coin
                             coin_equity = float(c.get('equity', c.get('walletBalance', 0)))
-                            if c['coin'] == 'USDT' and coin_equity > 0:
-                                logger.info(f"💰 Found USDT in {acc_type} (coin list): ${coin_equity}")
-                                return coin_equity
+                            if c['coin'] == 'USDT':
+                                 if coin_equity > 0:
+                                     logger.info(f"💰 Found USDT in {acc_type} (coin list): ${coin_equity}")
+                                     return coin_equity
+                                 else:
+                                     logger.warning(f"Bybit {acc_type}: USDT found but balance is {coin_equity}")
                                 
                 # Second attempt: check without coin filter (sum total)
                 gen_resp = self.session.get_wallet_balance(accountType=acc_type)
