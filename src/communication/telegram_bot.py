@@ -99,7 +99,9 @@ class TelegramBot:
                 '/panic': "KILL SWITCH (Close ALL)",
                 '/pause': "Pause Entire System",
                 '/pausecrypto': "Pause Crypto Markets",
-                '/pauseforex': "Pause Forex Markets"
+                '/pauseforex': "Pause Forex Markets",
+                '/open': "Show LIVE Open Positions (Direct from Broker)",
+                '/testsignalmessage': "Test Signal Channel Broadcast"
             }
             return f"⚠️ **CONFIRMATION REQUIRED**\nActon: {desc.get(cmd, cmd)}\nType `YES_Sure` to proceed."
             
@@ -241,6 +243,34 @@ class TelegramBot:
                 f"Bybit Bridge: {'🟢' if bybit_ok else '🔴'}\n"
                 f"Heartbeat: Active"
             )
+
+        elif cmd in ['/open', '/positions', '/position']:
+            msg = "🔭 **Live Open Positions (Broker Direct)**\n\n"
+            found = False
+            
+            # 1. Check MT5
+            if context and 'mt5_bridge' in context:
+                mt5_pos = context['mt5_bridge'].get_all_positions()
+                if mt5_pos:
+                    found = True
+                    msg += "**MT5 (Forex/Metals)**:\n"
+                    for p in mt5_pos:
+                        msg += f"• {p['symbol']} | Vol: {p['size']} | Ticket: {p['ticket']}\n"
+                    msg += "\n"
+            
+            # 2. Check Bybit
+            if context and 'bybit_bridge' in context:
+                bybit_pos = context['bybit_bridge'].get_all_positions()
+                if bybit_pos:
+                    found = True
+                    msg += "**Bybit (Crypto)**:\n"
+                    for p in bybit_pos:
+                        msg += f"• {p['symbol']} | Size: {p['size']} | Side: {p['side']}\n"
+            
+            if not found:
+                return "🧘 **Flat**: No open positions found on connected brokers."
+            
+            return msg
             
         elif cmd == '/logs':
             if context and 'logger_buffer' in context:
