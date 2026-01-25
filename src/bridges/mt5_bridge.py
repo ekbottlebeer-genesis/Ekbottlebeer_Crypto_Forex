@@ -319,12 +319,19 @@ class MT5Bridge:
                 norm_sl = norm_price + min_dist + point_size
             norm_sl = round(norm_sl, digits)
             
-        # 5. DETECT FILLING MODE 
-        filling = mt5.ORDER_FILLING_RETURN
-        if info.filling_mode & mt5.ORDER_FILLING_FOK:
+        # 5. DETECT FILLING MODE (Robust)
+        # Some brokers report FOK support but reject it. We default to IOC or FOK based on flags.
+        # If nothing set, use RETURN (default).
+        filling = mt5.ORDER_FILLING_FOK # Default preference for scalping
+        
+        # Check support flags
+        fill_flags = info.filling_mode
+        if fill_flags & mt5.ORDER_FILLING_FOK:
             filling = mt5.ORDER_FILLING_FOK
-        elif info.filling_mode & mt5.ORDER_FILLING_IOC:
+        elif fill_flags & mt5.ORDER_FILLING_IOC:
             filling = mt5.ORDER_FILLING_IOC
+        else:
+            filling = mt5.ORDER_FILLING_RETURN
 
         action = mt5.TRADE_ACTION_PENDING if 'limit' in order_type or 'stop' in order_type else mt5.TRADE_ACTION_DEAL
         

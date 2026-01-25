@@ -7,21 +7,26 @@ logger = logging.getLogger(__name__)
 
 class SessionManager:
     def __init__(self):
-        # Define Sessions (UTC)
-        # Asia: 00:00 - 08:00
-        # London: 07:00 - 15:00
-        # NY: 13:00 - 20:00
-        self.sessions = {
-            "ASIA": {"start": 0, "end": 8, "symbols": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD"]},
-            "LONDON": {"start": 7, "end": 15, "symbols": ["GBPUSD", "EURUSD", "XAUUSD"]},
-            "NY": {"start": 13, "end": 20, "symbols": ["XAUUSD", "US30", "NAS100", "USDJPY"]}
-        }
-        
-        # Crypto is 24/7
         self.crypto_symbols = [
             "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", 
             "XRPUSDT", "ADAUSDT", "XAUTUSDT"
         ]
+        
+        # Define Sessions (UTC Times) with Specific Watchlists
+        self.sessions = {
+            "Asia": {
+                "start": 0, "end": 8,
+                "symbols": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD", "EURUSD"],
+            },
+            "London": {
+                "start": 8, "end": 16,
+                "symbols": ["EURUSD", "GBPUSD", "XAUUSD"],
+            },
+            "NewYork": {
+                "start": 13, "end": 22,
+                "symbols": ["XAUUSD", "US30", "NAS100", "USDJPY", "EURUSD"],
+            }
+        }
 
     def get_current_session_info(self):
         """
