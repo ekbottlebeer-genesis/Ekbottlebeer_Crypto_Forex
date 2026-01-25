@@ -184,7 +184,7 @@ class RiskGuardrails:
              
              # 30 minute buffer before and after
              if -30 <= time_diff <= 30:
-                 logger.warning(f"🚫 NEWS HALT: {symbol} paused for {event['title']} [{event_ccy}] (T{time_diff:+.1f}m)")
+                 logger.debug(f"🚫 NEWS HALT: {symbol} paused for {event['title']} [{event_ccy}] (T{time_diff:+.1f}m)")
                  return False
                  
         return True

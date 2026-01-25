@@ -147,5 +147,3 @@ class TradeManager:
                          self.bot.send_message(f"🧗 **Trailing SL**\n{symbol} Moved to `{new_trail_sl:.5f}` (Locked Profit)")
 
         return trade
-
-        return trade

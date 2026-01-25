@@ -72,6 +72,21 @@ class RingBufferHandler(logging.Handler):
     def get_logs(self):
         return "\n".join(self.buffer)
 
+# --- MOCK TELEGRAM FOR OFFLINE / TEST MODE ---
+class MockTelegramBot:
+    def __init__(self):
+        self.running = True
+    def get_updates(self, offset=None, timeout=10):
+        return []
+    def send_message(self, message, chat_id=None):
+        logger.info(f"[MOCK TELEGRAM] >> {message[:50]}...")
+    def send_signal(self, message):
+         logger.info(f"[MOCK SIGNAL] >> {message[:50]}...")
+    def send_photo(self, photo_path, caption=""):
+        logger.info(f"[MOCK PHOTO] >> {photo_path} | {caption}")
+    def handle_command(self, command, args, context):
+        return f"Mock Response to {command}"
+
 def get_bot_version():
     """Retrieves the current version (Git Short Hash)."""
     try:
@@ -110,18 +125,24 @@ def main():
     # 3. Check for critical environment variables
     chk_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     missing = [v for v in chk_vars if not os.getenv(v)]
+    tele_offline = False
+    
     if missing:
-        logger.error(f"Missing environment variables: {missing}")
-        return
-        
-    # Check Signal Channel (Non-Critical but important)
-    if os.getenv("TELEGRAM_SIGNAL_CHANNEL_ID"):
-        print("--> SIGNAL CHANNEL: DETECTED (Ready to Broadcast)")
+        logger.warning(f"⚠️ Missing Telegram Keys: {missing}. Starting in OFFLINE / VERIFICATION MODE.")
+        print("--> ⚠️ TELEGRAM OFFLINE. Bot will run without network commands.")
+        tele_offline = True
     else:
-        print("--> ⚠️ SIGNAL CHANNEL ID MISSING (.env). No signals will be sent.")
+        # Check Signal Channel (Non-Critical but important)
+        if os.getenv("TELEGRAM_SIGNAL_CHANNEL_ID"):
+            print("--> SIGNAL CHANNEL: DETECTED (Ready to Broadcast)")
+        else:
+            print("--> ⚠️ SIGNAL CHANNEL ID MISSING (.env). No signals will be sent.")
 
     # 3. Initialize Components
-    bot = TelegramBot()
+    if tele_offline:
+        bot = MockTelegramBot()
+    else:
+        bot = TelegramBot()
     state_manager = StateManager()
     session_manager = SessionManager()
     smc = SMCLogic()
@@ -207,7 +228,11 @@ def main():
             
             # Print Header
             t_str = datetime.now().strftime('%H:%M:%S')
-            print(f"\n[{t_str}] 🔍 Scanning {len(watchlist)} assets (Sessions: {', '.join(current_sessions)})...")
+            # Filter Lists
+            paused_list = []
+            news_list = []
+            spread_list = []
+            active_count = 0
             
             for i, symbol in enumerate(all_monitored_symbols):
                 # High-Frequency Command check (every 2 symbols)
@@ -262,12 +287,12 @@ def main():
                 if symbol not in watchlist: continue
                 
                 if system_status == 'paused' or market_status == 'paused':
-                     print(f"   ⏸️ {symbol:<10} | [PAUSED]")
+                     paused_list.append(symbol)
                      continue
                 
                 # 1. Check News Filter
                 if not risk.check_news(symbol):
-                    print(f"   🚫 {symbol:<10} | [NEWS FILTER]")
+                    news_list.append(symbol)
                     continue
                     
                 # 1.5. Spread Protection (Crucial for Scalping)
@@ -288,8 +313,10 @@ def main():
                 # Guardrails should handle the logic, we pass value.
                 
                 if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
-                     print(f"   ⚠️ {symbol:<10} | [SPREAD HIGH] ({spread:.5f})")
+                     spread_list.append(symbol)
                      continue
+                
+                active_count += 1
                     
                 # 2. Fetch Data (HTF - 1H)
                 # MT5: 1H=16385, Bybit: '60'
@@ -527,6 +554,15 @@ def main():
                             else:
                                 bot.send_message(f"⚠️ **RR INVALID**: {symbol} setup found but RR < 2.0 (Calculated: {rr_ratio:.2f})") 
             
+            # --- Loop Summary ---
+            t_now = datetime.now().strftime('%H:%M:%S')
+            summary_parts = [f"[{t_now}] 🔍 Active: {active_count}"]
+            if news_list: summary_parts.append(f"News Halt: {len(news_list)}")
+            if paused_list: summary_parts.append(f"Paused: {len(paused_list)}")
+            if spread_list: summary_parts.append(f"High Spread: {len(spread_list)}")
+            
+            print(" | ".join(summary_parts))
+
             # --- 3. Heartbeat Logic (Every 60 mins) ---
             if current_time - last_heartbeat > 3600:
                 status_msg = f"💓 System Heartbeat\nSessions: {current_sessions}\nWatchlist Size: {len(watchlist)}"

@@ -1,5 +1,89 @@
 # src/bridges/mt5_bridge.py
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    # MOCK FOR MAC DEVELOPMENT
+    class MockMT5:
+        def initialize(self, **kwargs): return True
+        def shutdown(self): return True
+        def last_error(self): return (1, "Mock Error")
+        
+        # Mock Objects
+        class MockSymbol:
+            def __init__(self, name): 
+                self.name = name
+                self.time = 0
+                self.bid = 1.0
+                self.ask = 1.0001
+                self.volume_min = 0.01
+                self.volume_max = 100.0
+                self.volume_step = 0.01
+                self.digits = 5
+                self.point = 0.00001
+                self.trade_contract_size = 100000
+                self.trade_stops_level = 10
+                self.filling_mode = 1
+        
+        class MockTick:
+             def __init__(self):
+                 self.bid = 1.2000
+                 self.ask = 1.2002
+                 self.time = 1670000000
+        
+        def symbols_get(self, group="*"):
+            return [self.MockSymbol("EURUSD"), self.MockSymbol("GBPUSD")]
+            
+        def symbol_select(self, symbol, enable): return True
+        
+        def symbol_info(self, symbol):
+            return self.MockSymbol(symbol)
+            
+        def symbol_info_tick(self, symbol):
+            return self.MockTick()
+            
+        def copy_rates_from_pos(self, symbol, timeframe, start_pos, count):
+            import numpy as np
+            # Create a structured array to mimic MT5 rates
+            dt = np.dtype([('time', '<i8'), ('open', '<f8'), ('high', '<f8'), ('low', '<f8'), ('close', '<f8'), ('tick_volume', '<i8'), ('spread', '<i4'), ('real_volume', '<i8')])
+            rates = np.zeros(count, dtype=dt)
+            # Fill with dummy data
+            import time
+            current = int(time.time())
+            for i in range(count):
+                rates[i]['time'] = current - (i * 60) # 1 min candles
+                rates[i]['open'] = 1.1000
+                rates[i]['high'] = 1.1050
+                rates[i]['low'] = 1.0950
+                rates[i]['close'] = 1.1000
+            return rates
+
+        def order_send(self, request):
+            class MockResult:
+                retcode = 10009 # DONE
+                order = 12345
+                comment = "Mock Order Success"
+            return MockResult()
+            
+        # Constants
+        TRADE_ACTION_PENDING = 0
+        TRADE_ACTION_DEAL = 1
+        TRADE_ACTION_SLTP = 6
+        ORDER_TYPE_BUY_LIMIT = 2
+        ORDER_TYPE_SELL_LIMIT = 3
+        ORDER_TYPE_BUY_STOP = 4
+        ORDER_TYPE_SELL_STOP = 5
+        ORDER_TYPE_BUY = 0
+        ORDER_TYPE_SELL = 1
+        ORDER_FILLING_RETURN = 0
+        ORDER_FILLING_FOK = 1
+        ORDER_FILLING_IOC = 2
+        SYMBOL_FILLING_FOK = 1
+        SYMBOL_FILLING_IOC = 2
+        ORDER_TIME_GTC = 0
+        TRADE_RETCODE_DONE = 10009
+        
+    mt5 = MockMT5()
+    print("⚠️ WARNING: Running with MOCK MetaTrader5 (Mac Detected)")
 import os
 import logging
 from datetime import datetime
@@ -9,7 +93,11 @@ logger = logging.getLogger(__name__)
 
 class MT5Bridge:
     def __init__(self):
-        self.login = int(os.getenv("MT5_LOGIN", 0))
+        try:
+            val = os.getenv("MT5_LOGIN")
+            self.login = int(val) if val else 0
+        except:
+            self.login = 0
         self.password = os.getenv("MT5_PASSWORD")
         self.server = os.getenv("MT5_SERVER")
         self.connected = False

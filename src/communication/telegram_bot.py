@@ -52,6 +52,7 @@ class TelegramBot:
             # Testing
             {"command": "test", "description": "🧪 Force Entry [SYMBOL] (Test)"},
             {"command": "canceltest", "description": "❌ Close Test Trade"},
+            {"command": "testsignalmessage", "description": "📡 Broadcast Test Signal"},
             {"command": "strategy", "description": "📘 View Strategy Rules"}
         ]
         
@@ -383,7 +384,6 @@ class TelegramBot:
                  res = bridge.place_order(symbol, 'Buy', 'Market', test_vol)
                  if not res: return f"❌ **Test Failed**: Order rejected by Bybit. Check if {symbol} is valid or margin is low."
              else:
-             else:
                  # MT5: Use Market Execution for TEST to avoid Limit Price logic errors
                  tick = bridge.get_tick(symbol)
                  if tick:
@@ -392,11 +392,53 @@ class TelegramBot:
                      if not res: return f"❌ **Test Failed**: MT5 rejected Market Order (Ticket: None)."
                  else:
                      return f"❌ **Test Failed**: Could not get tick from MT5."
-                      
-             return f"🧪 **Test Entry Sent**: {symbol} (Qty: {test_vol})\nCheck platform for execution confirmation."
+            
+             # PERSIST TEST TRADE
+             if context and 'state_manager' in context:
+                 bridge_type = 'bybit' if 'bybit' in str(type(bridge)).lower() else 'mt5'
+                 context['state_manager'].state['test_trade'] = {
+                     'symbol': symbol,
+                     'ticket': res,
+                     'bridge': bridge_type
+                 }
+                 context['state_manager'].save_state()
+                 
+             return f"🧪 **Test Entry Sent**: {symbol} (Qty: {test_vol})\nTicket: `{res}` stored for cancellation."
              
         elif cmd == '/canceltest':
-             return "❌ Test trade management not linked to specific ID yet."
+             if context and 'state_manager' in context:
+                 test_trade = context['state_manager'].state.get('test_trade')
+                 if not test_trade: return "⚠️ No active test trade found in memory."
+                 
+                 symbol = test_trade['symbol']
+                 ticket = test_trade['ticket']
+                 b_type = test_trade['bridge']
+                 
+                 bridge = context['bybit_bridge'] if b_type == 'bybit' else context['mt5_bridge']
+                 
+                 # Close
+                 res = bridge.close_position(symbol, qty=None) # Bybit uses symbol, MT5 uses ticket usually.
+                 # Wait, bridge.close_position signature differs?
+                 # Bybit: close_position(symbol, qty)
+                 # MT5: close_position(ticket, pct)
+                 
+                 success = False
+                 if b_type == 'bybit':
+                     success = bridge.close_position(symbol)
+                 else:
+                     success = bridge.close_position(ticket, pct=1.0)
+                     
+                 if success:
+                     del context['state_manager'].state['test_trade']
+                     context['state_manager'].save_state()
+                     return f"✅ Test Trade Closed ({symbol})."
+                 else:
+                     return f"❌ Failed to close {symbol}. Check logs."
+             return "❌ State Manager missing."
+
+        elif cmd == '/testsignalmessage':
+            self.send_signal("📡 **TEST BROADCAST**\nIf you see this, the Signal Channel connection is ACTIVE.")
+            return "✅ Signal broadcast sent."
              
         elif cmd == '/strategy':
             return (

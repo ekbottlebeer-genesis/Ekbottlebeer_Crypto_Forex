@@ -19,8 +19,10 @@ You must update your credentials in the `.env` file.
     ```ini
     BYBIT_API_KEY=your_live_key
     BYBIT_API_SECRET=your_live_secret
-    BYBIT_TESTNET=False  <-- CHANGE THIS TO FALSE
+    BYBIT_TESTNET=False  <-- MUST be False for Unified Accounts (even Demo uses False + BYBIT_DEMO=True)
+    BYBIT_DEMO=False     <-- Set this to False ONLY for Real Money.
     ```
+    > **Note**: For Unified Trading Accounts, Bybit mostly uses the Mainnet endpoint structure. If you are using a **Demo Unified Account**, keep `BYBIT_TESTNET=False` and set `BYBIT_DEMO=True`.
 
 ### For Pepperstone (MT5)
 1.  **Open MT5 Terminal**.

@@ -56,7 +56,9 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 | `/trail [on/off]`| **Trail Toggle**: Enable/Disable Trailing Stop logic. |
 | `/maxloss [val]` | **Drawdown Guard**: Set daily $ loss limit before auto-shutdown. |
 | `/news` | **Calendar**: View localized high-impact news (Melbourne Time). |
-| `/test [SYM]` | **Force Entry**: Open a micro test trade to verify connection. |
+| `/test [SYM]` | **Force Entry**: Open a micro test trade to verify connection (Remembers Ticket ID). |
+| `/canceltest` | **Close Test**: Closes the specific test trade opened by the bot. |
+| `/testsignalmessage` | **Broadcast Check**: Sends a test message to the Signal Channel. |
 | `/chart [SYM]` | **Visualizer**: Request a live chart snapshot of any symbol. |
 
 ## 🚀 Getting Started
@@ -65,7 +67,10 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 2.  **Configuration**: 
     - Set `BYBIT_DEMO=True` in `.env` to use the official Bybit Demo environment.
     - Ensure MT5 API access is enabled in `Tools -> Options -> Expert Advisors`.
-3.  **Run**: Execute `python main.py` or use the `watchdog.bat` for self-healing loops.
+3.  **Run**: 
+    - Activate venv: `source .venv/bin/activate` (Mac/Linux) or `.venv\Scripts\activate` (Win)
+    - Install deps: `pip install -r requirements.txt` (Ensure `mplfinance` is included)
+    - Start: `python main.py` or use the `watchdog.bat` for self-healing loops.
 
 ---
 
