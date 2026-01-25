@@ -43,17 +43,18 @@ class BybitBridge:
         if api_key and api_secret:
             try:
                 # Initialize Pybit HTTP
+                # For Mainnet Demo, we MUST use pybit with domain="api-demo.bybit.com"
                 self.session = HTTP(
-                    testnet=pybit_testnet_arg,
                     api_key=api_key,
                     api_secret=api_secret,
+                    testnet=pybit_testnet_arg,
+                    domain=target_domain # Pass directly to constructor if supported, else override below
                 )
                 
-                # FORCE DOMAIN OVERRIDE
-                # This ensures we are hitting exactly where we expect, bypassing internal defaults
+                # FORCE DOMAIN OVERRIDE (Redundant but safe)
                 self.session.domain = target_domain
                 
-                logger.info(f"✅ Bybit Session Initialized. Connected to: {self.session.domain}")
+                logger.info(f"✅ Bybit Session Live. Endpoint: https://{target_domain}")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Bybit session: {e}")
 
