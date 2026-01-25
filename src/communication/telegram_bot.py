@@ -213,33 +213,6 @@ class TelegramBot:
                     
                     msg += f"{bias_emoji} **{symbol}**\n"
                     msg += f"┣ Bias: {data['bias']} (RSI: {rsi_str})\n"
-                    msg += f"┣ Progress: `{status}`\n"
-                    msg += f"┗ Waiting: _{waiting}_\n\n"
-                
-                # --- MERGED CONFIGURATION (from /currentsettings) ---
-                msg += "---\n⚙️ **Active Configuration**\n"
-                
-                # Gather Data
-                st = sm.state
-                sys_status = st.get('system_status', 'Unknown')
-                risk_pct = context['position_sizer'].default_risk_pct if 'position_sizer' in context else "N/A"
-                max_loss = context['risk_manager'].max_session_loss if 'risk_manager' in context else "N/A"
-                news_mode = context['risk_manager'].news_filter_enabled if 'risk_manager' in context else "N/A"
-                
-                trailing = "N/A"
-                if 'mt5_trade_manager' in context:
-                    trailing = "ON" if context['mt5_trade_manager'].trailing_enabled else "OFF"
-                    
-                session_info = "N/A"
-                if 'session_manager' in context:
-                   s_info = context['session_manager'].get_current_session_info()
-                   session_str = ", ".join(s_info['sessions']) if s_info['sessions'] else "None"
-                   session_info = f"{session_str} (UTC {s_info['utc_hour']}:00)"
-                
-                msg += f"**Status**: `{sys_status.upper()}` | **Session**: `{session_info}`\n"
-                msg += f"**Risk**: `{risk_pct}%` | **MaxLoss**: `${max_loss}`\n"
-                msg += f"**News**: `{'ON' if news_mode else 'OFF'}` | **Trail**: `{trailing}`"
-                
                 return msg
             return "🔍 Scanning markets..."
             
@@ -260,15 +233,43 @@ class TelegramBot:
             if bybit_bal == 0.0 and bybit_ok:
                 bybit_note = "\n⚠️ *Note*: Bybit $0.0 found across UNIFIED/SPOT/CONTRACT. Check API permissions or Demo Activation."
 
-            return (
+            msg = (
                 f"💰 **Wallet Status**\n"
                 f"MT5 Equity: `${mt5_bal}`\n"
                 f"Bybit Equity: `${bybit_bal}`{bybit_note}\n\n"
                 f"✅ **Diagnostics**\n"
                 f"MT5 Bridge: {'🟢' if mt5_ok else '🔴'}\n"
                 f"Bybit Bridge: {'🟢' if bybit_ok else '🔴'}\n"
-                f"Heartbeat: Active"
+                f"Heartbeat: Active\n"
             )
+            
+            # --- MERGED CONFIGURATION (Moved from /scan) ---
+            msg += "---\n⚙️ **Active Configuration**\n"
+            
+            # Gather Data
+            sys_status = "Unknown"
+            if context and 'state_manager' in context:
+                 sys_status = context['state_manager'].state.get('system_status', 'Unknown')
+                 
+            risk_pct = context['position_sizer'].default_risk_pct if 'position_sizer' in context else "N/A"
+            max_loss = context['risk_manager'].max_session_loss if 'risk_manager' in context else "N/A"
+            news_mode = context['risk_manager'].news_filter_enabled if 'risk_manager' in context else "N/A"
+            
+            trailing = "N/A"
+            if 'mt5_trade_manager' in context:
+                trailing = "ON" if context['mt5_trade_manager'].trailing_enabled else "OFF"
+                
+            session_info = "N/A"
+            if 'session_manager' in context:
+               s_info = context['session_manager'].get_current_session_info()
+               session_str = ", ".join(s_info['sessions']) if s_info['sessions'] else "None"
+               session_info = f"{session_str} (UTC {s_info['utc_hour']}:00)"
+            
+            msg += f"**Status**: `{sys_status.upper()}` | **Session**: `{session_info}`\n"
+            msg += f"**Risk**: `{risk_pct}%` | **MaxLoss**: `${max_loss}`\n"
+            msg += f"**News**: `{'ON' if news_mode else 'OFF'}` | **Trail**: `{trailing}`"
+            
+            return msg
 
         elif cmd in ['/open', '/positions', '/position']:
             msg = "🔭 **Live Open Positions (Broker Direct)**\n\n"
