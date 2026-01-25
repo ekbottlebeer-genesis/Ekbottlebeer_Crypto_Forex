@@ -24,37 +24,37 @@ class BybitBridge:
 
         # CRITICAL OVERRIDE: If Demo is True, Testnet param in Pybit must be False (it refers to classic testnet)
         # We explicitly control the domain below.
+        # 2. SELECT ENDPOINT
         if self.demo_trading:
             pybit_testnet_arg = False 
-            target_domain = "api-demo.bybit.com"
-            logger.info(f"🛠 Bybit Mode: DEMO TRADING (Target: {target_domain})")
+            target_endpoint = "api-demo.bybit.com"
+            logger.info(f"🛠 Bybit Mode: DEMO TRADING (Target: {target_endpoint})")
         elif self.testnet:
             pybit_testnet_arg = True
-            target_domain = "api-testnet.bybit.com" 
-            logger.info(f"🛠 Bybit Mode: TESTNET CLASSIC (Target: {target_domain})")
+            target_endpoint = "api-testnet.bybit.com" 
+            logger.info(f"🛠 Bybit Mode: TESTNET CLASSIC (Target: {target_endpoint})")
         else:
             pybit_testnet_arg = False
-            target_domain = "api.bybit.com"
-            logger.info(f"🛠 Bybit Mode: LIVE MAINNET (Target: {target_domain})")
+            target_endpoint = "api.bybit.com"
+            logger.info(f"🛠 Bybit Mode: LIVE MAINNET (Target: {target_endpoint})")
         
         self.session = None
         self._instruments_cache = {} 
         
         if api_key and api_secret:
             try:
-                # Initialize Pybit HTTP
-                # For Mainnet Demo, we MUST use pybit with domain="api-demo.bybit.com"
+                # Initialize Pybit HTTP with standard settings
                 self.session = HTTP(
                     api_key=api_key,
                     api_secret=api_secret,
-                    testnet=pybit_testnet_arg,
-                    domain=target_domain # Pass directly to constructor if supported, else override below
+                    testnet=pybit_testnet_arg
                 )
                 
-                # FORCE DOMAIN OVERRIDE (Redundant but safe)
-                self.session.domain = target_domain
+                # CRITICAL FIX: Override the endpoint to bypass Pybit's internal 
+                # host decoration (which was creating api.api-demo.bybit.com.com)
+                self.session.endpoint = f"https://{target_endpoint}"
                 
-                logger.info(f"✅ Bybit Session Live. Endpoint: https://{target_domain}")
+                logger.info(f"✅ Bybit Session Live. Final Endpoint: {self.session.endpoint}")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Bybit session: {e}")
 
