@@ -9,8 +9,9 @@ echo [%TIME%] [WATCHDOG] Checking for updates...
 taskkill /F /IM python.exe /FI "WINDOWTITLE ne The Watchdog*" >nul 2>&1
 
 :: 2. Pull Latest Code (Verified Source)
-:: 2. Pull Latest Code (Verified Source)
-git pull
+echo [%TIME%] [WATCHDOG] Force-syncing with repository...
+git fetch --all
+git reset --hard origin/main
 
 :: 3. Environment Isolation (Activate VENV)
 :: Assumes .venv folder exists in project root
