@@ -62,7 +62,7 @@ class RiskGuardrails:
                     
                     # If cache is less than 12 hours old, use it
                     if (datetime.now() - cache_time).total_seconds() < 43200:
-                         logger.info(f"Loaded {len(cache['events'])} news events from local cache ({cache['timestamp']})")
+                         logger.debug(f"Loaded {len(cache['events'])} news events from local cache ({cache['timestamp']})")
                          # Re-hydrate dates
                          self.high_impact_events = []
                          for e in cache['events']:
@@ -150,8 +150,8 @@ class RiskGuardrails:
         if not self.news_filter_enabled:
             return True
 
-        # Refresh if stale (older than 4 hours) or empty
-        if not self.high_impact_events or (datetime.now() - self.last_fetch_time).total_seconds() > 14400:
+        # Refresh if stale (older than 4 hours) or never fetched
+        if (datetime.now() - self.last_fetch_time).total_seconds() > 14400:
              self.fetch_calendar()
         
         if not self.high_impact_events:
