@@ -3,24 +3,40 @@ title The Watchdog - A+ Operator
 color 0A
 
 echo [WATCHDOG] INITIALIZING...
-echo [DEBUG] If this window closes immediately, there is a system path issue.
-timeout /t 2 >nul
 
-:: --- 0. PRE-FLIGHT CHECKS ---
-echo [WATCHDOG] 🔍 SYSTEM CHECK...
-
-:: Check Python
+:: --- DETECT PYTHON COMMAND ---
+:: Try 'python' first
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Python is NOT installed or not in PATH!
-    echo.
-    echo Please install Python 3.10+ from python.org.
-    echo IMPORTANT: Check the box "Add Python to PATH" during installation.
-    echo.
-    pause
-    exit
+if %errorlevel% equ 0 (
+    set PYTHON_CMD=python
+    goto :check_env
 )
+
+:: Try 'py' (Windows Launcher)
+py --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON_CMD=py
+    goto :check_env
+)
+
+:: IF WE GET HERE, PYTHON IS MISSING
+echo.
+echo [ERROR] SYSTEM PATH ISSUE DETECTED!
+echo ----------------------------------------------------
+echo "python" or "py" command was not found.
+echo.
+echo HOW TO FIX:
+echo 1. Download Python from python.org
+echo 2. Run the installer
+echo 3. VERY IMPORTANT: Check the box "Add Python to environment variables" or "Add to PATH"
+echo 4. Restart your computer.
+echo.
+echo Press any key to exit...
+pause
+exit
+
+:check_env
+echo [WATCHDOG] using command: %PYTHON_CMD%
 
 :: --- 1. CONFIGURATION CHECK ---
 if not exist ".env" (
@@ -51,15 +67,13 @@ echo [WATCHDOG] Checking for updates...
 taskkill /F /IM python.exe /FI "WINDOWTITLE ne The Watchdog*" >nul 2>&1
 
 :: 3. CODE SYNC (SAFE MODE)
-:: Removed aggressive 'git reset --hard' to prevent crashing the running script.
-:: Using gentle pull.
 echo [WATCHDOG] Syncing with repository...
 git pull
 
 :: 4. Environment Setup (Auto-Venv)
 if not exist ".venv" (
     echo [WATCHDOG] Creating Virtual Environment (.venv)...
-    python -m venv .venv
+    %PYTHON_CMD% -m venv .venv
 )
 
 :: Activate VENV
