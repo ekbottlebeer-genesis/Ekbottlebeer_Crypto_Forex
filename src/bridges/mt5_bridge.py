@@ -57,6 +57,9 @@ except ImportError:
                 rates[i]['close'] = 1.1000
             return rates
 
+        def positions_get(self, ticket=None):
+            return [] # Mock returns empty list for safety on Mac
+
         def order_send(self, request):
             class MockResult:
                 retcode = 10009 # DONE
@@ -437,6 +440,27 @@ class MT5Bridge:
             
         logger.info(f"Position {ticket} Closed ({pct*100}%)")
         return True
+
+    def get_all_positions(self):
+        """Returns list of all active positions."""
+        if not self.connected: self.connect()
+        
+        try:
+            positions = mt5.positions_get()
+            if positions:
+                active = []
+                for p in positions:
+                    active.append({
+                        'symbol': p.symbol,
+                        'ticket': p.ticket,
+                        'size': p.volume,
+                        'type': p.type
+                    })
+                return active
+            return []
+        except Exception as e:
+            logger.error(f"Failed to get MT5 positions: {e}")
+            return []
 
     def get_balance(self):
         if not self.connected: self.connect()

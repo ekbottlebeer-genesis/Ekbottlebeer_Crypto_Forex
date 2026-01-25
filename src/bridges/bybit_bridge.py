@@ -265,7 +265,29 @@ class BybitBridge:
                  
         except Exception as e:
             logger.error(f"Bybit Close Error: {e}")
-            return False
+    def get_all_positions(self):
+        """Returns a list of all open positions with size > 0."""
+        if not self.session: return []
+        
+        try:
+            # Fetch all USDT positions (Linear)
+            resp = self.session.get_positions(category="linear", settleCoin="USDT")
+            if resp['retCode'] == 0:
+                raw_list = resp['result']['list']
+                active = []
+                for p in raw_list:
+                    if float(p['size']) > 0:
+                        active.append({
+                            'symbol': p['symbol'],
+                            'ticket': p['symbol'], # Bybit uses symbol as ID for close
+                            'size': float(p['size']),
+                            'side': p['side']
+                        })
+                return active
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch Bybit positions: {e}")
+            return []
 
     def get_balance(self):
         """Exhaustively searches all Bybit account types for any USDT/USD balance."""

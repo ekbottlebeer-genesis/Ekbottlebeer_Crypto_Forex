@@ -137,21 +137,35 @@ class TelegramBot:
             return "x State Manager Unavailable"
 
         elif cmd == '/panic':
+            count = 0
+            details = []
+            
+            # 1. Close MT5 Positions
+            if context and 'mt5_bridge' in context:
+                mt5_pos = context['mt5_bridge'].get_all_positions()
+                for p in mt5_pos:
+                    if context['mt5_bridge'].close_position(p['ticket']):
+                        count += 1
+                        details.append(f"{p['symbol']}")
+            
+            # 2. Close Bybit Positions
+            if context and 'bybit_bridge' in context:
+                bybit_pos = context['bybit_bridge'].get_all_positions()
+                for p in bybit_pos:
+                    if context['bybit_bridge'].close_position(p['symbol']):
+                         count += 1
+                         details.append(f"{p['symbol']}")
+
+            # 3. Halt System
             if context and 'state_manager' in context:
-                active = list(context['state_manager'].state.get('active_trades', []))
-                count = 0
-                for trade in active:
-                    symbol = trade['symbol']
-                    bridge = context['bybit_bridge'] if symbol in context['session_manager'].crypto_symbols else context['mt5_bridge']
-                    bridge.close_position(trade['ticket'], pct=1.0)
-                    count += 1
-                
-                # Clear State
                 context['state_manager'].state['active_trades'] = []
                 context['state_manager'].state['system_status'] = 'halted'
                 context['state_manager'].save_state()
-                return f"💀 **PANIC EXECUTED**\n{count} positions closed. System HALTED."
-            return "panic failed"
+                
+            if count > 0:
+                return f"💀 **PANIC EXECUTED**\nCLOSED {count} Positions: {', '.join(details)}\nSystem **HALTED**."
+            else:
+                return "💀 **PANIC EXECUTED**\nNo active positions found on bridges.\nSystem **HALTED**."
 
         elif cmd == '/pause':
             if context and 'state_manager' in context:
