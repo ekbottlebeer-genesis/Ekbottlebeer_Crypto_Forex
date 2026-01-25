@@ -48,7 +48,8 @@ if not exist ".env" (
         echo [IMPORTANT] STOP!
         echo.
         echo A new ".env" file has been created.
-        echo You MUST open it now and add your API KEYS (Telegram, Bybit, MT5).
+        echo You MUST open it now and add your API KEYS! 
+        echo (Telegram - Bybit - MT5)
         echo.
         echo Press any key ONLY after you have saved your keys...
         pause
