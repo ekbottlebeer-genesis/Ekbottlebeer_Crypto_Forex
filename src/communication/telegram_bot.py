@@ -449,20 +449,28 @@ class TelegramBot:
              symbol = args.upper() if cmd == '/test' else cmd[1:].upper()
              if not symbol: return "Usage: /test [SYMBOL]"
              
-             # ALIAS MAPPING: Map BTCUSD -> BTCUSDT for Bybit
-             # Simple logic: If it ends in USD but not USDT, and key exists in crypto list with T appended
-             if symbol.endswith('USD') and not symbol.endswith('USDT'):
-                 potential_crypto = symbol + 'T'
-                 if potential_crypto in context['session_manager'].crypto_symbols:
-                     symbol = potential_crypto
+             # AGGRESSIVE ROUTING LOGIC (The "Serious" Fix)
+             # Any symbol starting with these prefixes is 100% Crypto -> Bybit
+             crypto_prefixes = ["BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "XAUT", "DOGE", "AVAX", "DOT"]
+             is_crypto = False
              
+             # 1. Check Prefixes
+             if any(symbol.startswith(p) for p in crypto_prefixes):
+                 is_crypto = True
+                 # Auto-fix suffix if missing T (BTCUSD -> BTCUSDT)
+                 if symbol.endswith("USD") and not symbol.endswith("USDT"):
+                     symbol = symbol + "T"
+             
+             # 2. Check Suffix
+             if symbol.endswith("USDT"):
+                 is_crypto = True
+                 
              bridge = None
-             if context and 'session_manager' in context:
-                 # Check strict list first
-                 if symbol in context['session_manager'].crypto_symbols:
-                     bridge = context['bybit_bridge']
-                 else:
-                     bridge = context['mt5_bridge']
+             if is_crypto:
+                 bridge = context.get('bybit_bridge')
+             else:
+                 # Default to MT5 for everything else (Forex/Indices)
+                 bridge = context.get('mt5_bridge')
             
              if not bridge: return "Bridge not found."
              
