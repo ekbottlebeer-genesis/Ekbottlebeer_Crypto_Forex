@@ -2,18 +2,27 @@
 title The Watchdog - A+ Operator
 color 0A
 
-echo [WATCHDOG] SYSTEM CHECK...
+echo [WATCHDOG] INITIALIZING...
+echo [DEBUG] If this window closes immediately, there is a system path issue.
+timeout /t 2 >nul
+
+:: --- 0. PRE-FLIGHT CHECKS ---
+echo [WATCHDOG] 🔍 SYSTEM CHECK...
 
 :: Check Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
+    echo.
     echo [ERROR] Python is NOT installed or not in PATH!
-    echo Please install Python 3.10+ and check "Add to PATH".
+    echo.
+    echo Please install Python 3.10+ from python.org.
+    echo IMPORTANT: Check the box "Add Python to PATH" during installation.
+    echo.
     pause
     exit
 )
 
-:: CONFIGURATION CHECK
+:: --- 1. CONFIGURATION CHECK ---
 if not exist ".env" (
     echo [WATCHDOG] .env file MISSING!
     if exist ".env.example" (
@@ -38,15 +47,16 @@ if not exist ".env" (
 echo ------------------------------------
 echo [WATCHDOG] Checking for updates...
 
-:: Cleanup Stale Processes
+:: 2. Cleanup Stale Processes
 taskkill /F /IM python.exe /FI "WINDOWTITLE ne The Watchdog*" >nul 2>&1
 
-:: Pull Latest Code
-echo [WATCHDOG] Force-syncing with repository...
-git fetch --all
-git reset --hard origin/main
+:: 3. CODE SYNC (SAFE MODE)
+:: Removed aggressive 'git reset --hard' to prevent crashing the running script.
+:: Using gentle pull.
+echo [WATCHDOG] Syncing with repository...
+git pull
 
-:: Environment Setup
+:: 4. Environment Setup (Auto-Venv)
 if not exist ".venv" (
     echo [WATCHDOG] Creating Virtual Environment (.venv)...
     python -m venv .venv
@@ -60,11 +70,11 @@ if exist .venv\Scripts\activate.bat (
     echo [WATCHDOG] WARNING: .venv corrupt? Using global python.
 )
 
-:: Install Dependencies
+:: 5. Install Dependencies
 echo [WATCHDOG] Checking/Installing requirements...
 python -m pip install -r requirements.txt --upgrade
 
-:: SYSTEM DIAGNOSTICS
+:: 6. SYSTEM DIAGNOSTICS
 echo [WATCHDOG] Running Pre-Flight Diagnostics...
 echo ---------------------------------------------------
 python debug_mt5.py
@@ -73,13 +83,13 @@ python debug_bybit_v2.py
 echo ---------------------------------------------------
 echo [WATCHDOG] Diagnostics Complete.
 
-:: Launch The Brain
-echo [WATCHDOG] Launching Bot...
+:: 7. Launch The Brain
+echo [WATCHDOG] 🚀 Launching Bot...
 timeout /t 3
 python main.py
 
-:: Crash Recovery
-echo [WATCHDOG] Bot process ended (Crash/Exit).
+:: 8. Crash Recovery
+echo [WATCHDOG] X Bot process ended.
 echo [WATCHDOG] Restarting in 5 seconds...
 timeout /t 5
 goto loop
