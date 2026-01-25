@@ -449,9 +449,20 @@ class TelegramBot:
              symbol = args.upper() if cmd == '/test' else cmd[1:].upper()
              if not symbol: return "Usage: /test [SYMBOL]"
              
+             # ALIAS MAPPING: Map BTCUSD -> BTCUSDT for Bybit
+             # Simple logic: If it ends in USD but not USDT, and key exists in crypto list with T appended
+             if symbol.endswith('USD') and not symbol.endswith('USDT'):
+                 potential_crypto = symbol + 'T'
+                 if potential_crypto in context['session_manager'].crypto_symbols:
+                     symbol = potential_crypto
+             
              bridge = None
              if context and 'session_manager' in context:
-                 bridge = context['bybit_bridge'] if symbol in context['session_manager'].crypto_symbols else context['mt5_bridge']
+                 # Check strict list first
+                 if symbol in context['session_manager'].crypto_symbols:
+                     bridge = context['bybit_bridge']
+                 else:
+                     bridge = context['mt5_bridge']
             
              if not bridge: return "Bridge not found."
              
