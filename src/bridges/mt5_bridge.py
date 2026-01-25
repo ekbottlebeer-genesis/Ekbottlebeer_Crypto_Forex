@@ -321,9 +321,9 @@ class MT5Bridge:
             
         # 5. DETECT FILLING MODE 
         filling = mt5.ORDER_FILLING_RETURN
-        if info.filling_mode & mt5.SYMBOL_FILLING_FOK:
+        if info.filling_mode & mt5.ORDER_FILLING_FOK:
             filling = mt5.ORDER_FILLING_FOK
-        elif info.filling_mode & mt5.SYMBOL_FILLING_IOC:
+        elif info.filling_mode & mt5.ORDER_FILLING_IOC:
             filling = mt5.ORDER_FILLING_IOC
 
         action = mt5.TRADE_ACTION_PENDING if 'limit' in order_type or 'stop' in order_type else mt5.TRADE_ACTION_DEAL
