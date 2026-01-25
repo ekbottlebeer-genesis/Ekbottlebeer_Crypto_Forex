@@ -102,7 +102,8 @@ class TelegramBot:
                 '/pauseforex': "Pause Forex Markets",
                 '/open': "Show LIVE Open Positions (Direct from Broker)",
                 '/testsignalmessage': "Test Signal Channel Broadcast",
-                '/debugbybit': "Deep Diagnostic for Bybit Connection"
+                '/debugbybit': "Deep Diagnostic for Bybit Connection",
+                '/currentsettings': "View All Active Risk/Trade Configurations"
             }
             return f"⚠️ **CONFIRMATION REQUIRED**\nActon: {desc.get(cmd, cmd)}\nType `YES_Sure` to proceed."
             
@@ -463,6 +464,50 @@ class TelegramBot:
                 elif mode in ['off', 'false', 'disable']:
                     return context['risk_manager'].set_news_mode(False)
             return "❌ Usage: /newsmode [on/off]"
+
+        elif cmd == '/currentsettings':
+            if not context: return "⚠️ System context unavailable."
+            
+            # Gather Data
+            sys_status = "Unknown"
+            crypto_status = "Unknown" 
+            forex_status = "Unknown"
+            
+            if 'state_manager' in context:
+                st = context['state_manager'].state
+                sys_status = st.get('system_status', 'Unknown')
+                crypto_status = st.get('crypto_status', 'Unknown')
+                forex_status = st.get('forex_status', 'Unknown')
+                
+            risk_pct = context['position_sizer'].default_risk_pct if 'position_sizer' in context else "N/A"
+            max_loss = context['risk_manager'].max_session_loss if 'risk_manager' in context else "N/A"
+            news_mode = context['risk_manager'].news_mode_enabled if 'risk_manager' in context else "N/A"
+            
+            trailing = "N/A"
+            if 'mt5_trade_manager' in context:
+                trailing = "ON" if context['mt5_trade_manager'].trailing_enabled else "OFF"
+                
+            session_info = "N/A"
+            if 'session_manager' in context:
+               s_info = context['session_manager'].get_current_session_info()
+               session_str = ", ".join(s_info['sessions']) if s_info['sessions'] else "None"
+               session_info = f"{session_str} (UTC {s_info['utc_hour']}:00)"
+               
+            msg = "⚙️ **Active Configuration**\n\n"
+            msg += f"**System Status**: `{sys_status.upper()}`\n"
+            msg += f"• **Crypto Scanning**: `{crypto_status.upper()}`\n"
+            msg += f"• **Forex Scanning**: `{forex_status.upper()}`\n\n"
+            
+            msg += "**Risk Management**\n"
+            msg += f"• **Risk Per Trade**: `{risk_pct}%`\n"
+            msg += f"• **Max Session Loss**: `${max_loss}`\n"
+            msg += f"• **News Filter**: `{'ON' if news_mode else 'OFF'}`\n"
+            msg += f"• **Trailing Stop**: `{trailing}`\n\n"
+            
+            msg += "**Market Context**\n"
+            msg += f"• **Active Sessions**: `{session_info}`\n"
+            
+            return msg
 
         # --- Testing ---
         elif cmd == '/test' or (cmd.startswith('/') and context and any(cmd[1:].upper() == s for s in context['session_manager'].crypto_symbols + list(context['session_manager'].get_current_session_info()['watchlist']))):
