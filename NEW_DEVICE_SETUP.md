@@ -105,14 +105,8 @@ Ensure your `.venv` is active, then run:
 python main.py
 ```
 
-### Option B: Auto-Healing Mode (Production)
-Use the included batch file that auto-Restarts the bot if it crashes and auto-updates code from Git.
-
-1.  Double-click `Run Ekbottlebeer Scalper (watchdog).bat`
-2.  Or run in terminal:
-    ```bash
-    "Run Ekbottlebeer Scalper (watchdog).bat"
-    ```
+### Option B: Auto-Setup (Recommended)
+Double-click `launch.bat` to automatically install dependencies and start the bot.
 
 ---
 
