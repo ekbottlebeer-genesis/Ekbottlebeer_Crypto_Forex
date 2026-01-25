@@ -135,6 +135,15 @@ class TelegramBot:
                     bridge.close_position(trade['ticket'], pct=1.0)
                     active.remove(trade)
                     closed_count += 1
+                    
+                    # LOG HISTORY
+                    context['state_manager'].log_closed_trade({
+                        'symbol': trade['symbol'],
+                        'direction': trade['direction'],
+                        'pnl': 0.0, # Unknown exactly without query, assuming 0 or 'Manual Close' tag? 
+                        # Ideally we query bridge, but for now we log the event.
+                        'exit_reason': 'Manual Command'
+                    })
                 
                 context['state_manager'].save_state()
                 return f"✅ Closed {closed_count} positions for {symbol}."
@@ -433,7 +442,19 @@ class TelegramBot:
             return "Positions: None"
 
         elif cmd == '/history':
-            return "📜 **Trade History** (Last 5)\n• EURUSD Long (+2.1R)\n• BTCUSD Short (-1.0R)\n(History Persistence Pending)"
+            if context and 'state_manager' in context:
+                history = context['state_manager'].state.get('trade_history', [])
+                if not history:
+                    return "📜 **Trade History**\nNo closed trades recorded this session."
+                
+                msg = "📜 **Trade History** (Last 10)\n"
+                for t in history:
+                    # Expect keys: symbol, direction, pnl_r (or pnl_usd), result (Win/Loss)
+                    res_icon = "g" if t.get('pnl', 0) > 0 else "r" # Simple color coding concept
+                    pnl_str = f"{t.get('pnl', 0):+.2f}"
+                    msg += f"• {t.get('symbol')} {t.get('direction').upper()} ({pnl_str})\n"
+                return msg
+            return "History unavailable."
 
         elif cmd == '/resume':
             if context and 'state_manager' in context:
@@ -632,6 +653,14 @@ class TelegramBot:
                      success = bridge.close_position(ticket, pct=1.0)
                      
                  if success:
+                     # LOG HISTORY
+                     context['state_manager'].log_closed_trade({
+                         'symbol': symbol,
+                         'direction': 'TEST', 
+                         'pnl': 0.0,
+                         'exit_reason': 'Test Cancelled'
+                     })
+                     
                      del context['state_manager'].state['test_trade']
                      context['state_manager'].save_state()
                      return f"✅ Test Trade Closed ({symbol})."

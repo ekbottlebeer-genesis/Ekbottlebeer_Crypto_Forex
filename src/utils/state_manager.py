@@ -34,8 +34,10 @@ class StateManager:
             "watchlists": {
                 "ASIA": ["USDJPY", "AUDUSD"],
                 "LONDON": ["GBPUSD", "EURUSD", "XAUUSD"],
+                "LONDON": ["GBPUSD", "EURUSD", "XAUUSD"],
                 "NY": ["XAUUSD", "US30", "NAS100"]
-            }
+            },
+            "trade_history": [] # List of closed trades {symbol, direction, pnl, result}
         }
 
     def save_state(self):
@@ -73,4 +75,11 @@ class StateManager:
 
     def updates_session_pnl(self, amount):
         self.state['session_pnl'] = self.state.get('session_pnl', 0.0) + amount
+        self.save_state()
+
+    def log_closed_trade(self, trade_data):
+        """Logs a closed trade to history (Highlander rule: Keep only last 10)."""
+        history = self.state.get('trade_history', [])
+        history.insert(0, trade_data) # Prepend to show newest first
+        self.state['trade_history'] = history[:10] # Keep last 10
         self.save_state()

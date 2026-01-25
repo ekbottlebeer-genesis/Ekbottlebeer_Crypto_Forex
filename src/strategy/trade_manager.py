@@ -65,10 +65,14 @@ class TradeManager:
                         if last_candle['close'] < last_swing['swing_low_val']:
                             logger.warning(f"🚨 Structural Exit: Bearish MSS detected for {symbol}. Closing Long immediately.")
                             self.bridge.close_position(trade['ticket'], pct=1.0)
-                            # Update state to remove trade? 
-                            # Usually main loop handles removal if not found in open positions, 
-                            # best to mark it closed in state or let bridge/main sync handle it.
-                            # For safety, we mark it here or return 'closed' signal.
+                            
+                            # Log History
+                            self.state_manager.log_closed_trade({
+                                 'symbol': symbol,
+                                 'direction': direction,
+                                 'pnl': 0.0,
+                                 'exit_reason': 'Structural Exit'
+                            })
                             return None # Signal checks stop
                             
                 elif direction == 'short':
@@ -79,6 +83,14 @@ class TradeManager:
                         if last_candle['close'] > last_swing['swing_high_val']:
                              logger.warning(f"🚨 Structural Exit: Bullish MSS detected for {symbol}. Closing Short immediately.")
                              self.bridge.close_position(trade['ticket'], pct=1.0)
+                             
+                             # Log History
+                             self.state_manager.log_closed_trade({
+                                 'symbol': symbol,
+                                 'direction': direction,
+                                 'pnl': 0.0, # Placeholder until PnL Calculation is robust
+                                 'exit_reason': 'Structural Exit'
+                             })
                              return None
 
             except Exception as e:
