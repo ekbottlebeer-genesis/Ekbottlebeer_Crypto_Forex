@@ -9,7 +9,10 @@ echo [%TIME%] [WATCHDOG] Checking for updates...
 taskkill /F /IM python.exe /FI "WINDOWTITLE ne The Watchdog*" >nul 2>&1
 
 :: 2. Pull Latest Code (Verified Source)
+:: Use stash to protect local changes (like .env or state) from blocking pull
+git stash
 git pull
+git stash pop
 
 :: 3. Environment Isolation (Activate VENV)
 :: Assumes .venv folder exists in project root
@@ -35,7 +38,7 @@ echo [%TIME%] [WATCHDOG] Diagnostics Complete.
 
 :: 6. Launch The Brain
 echo [%TIME%] [WATCHDOG] Launching Bot...
-timout /t 3
+timeout /t 3
 python main.py
 
 :: 7. Crash Recovery

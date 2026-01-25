@@ -9,3 +9,5 @@ venv/
 *.log
 .venv/
 backtest_results*.csv
+state.json
+news_cache.json
