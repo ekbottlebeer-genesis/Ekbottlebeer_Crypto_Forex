@@ -437,8 +437,10 @@ class TelegramBot:
              return "❌ State Manager missing."
 
         elif cmd == '/testsignalmessage':
-            self.send_signal("📡 **TEST BROADCAST**\nIf you see this, the Signal Channel connection is ACTIVE.")
-            return "✅ Signal broadcast sent."
+            if self.send_signal("📡 **TEST BROADCAST**\nIf you see this, the Signal Channel connection is ACTIVE."):
+                return "✅ Signal broadcast sent."
+            else:
+                return "❌ Signal Broadcast Failed. Check `TELEGRAM_SIGNAL_CHANNEL_ID` and Bot Admin permissions."
              
         elif cmd == '/strategy':
             return (
@@ -470,7 +472,7 @@ class TelegramBot:
         
         if not self.token or not target_chat:
             logger.warning("Telegram credentials or target chat missing. Cannot send message.")
-            return
+            return False
 
         try:
             url = f"{self.base_url}/sendMessage"
@@ -482,15 +484,18 @@ class TelegramBot:
             response = requests.post(url, json=payload)
             response.raise_for_status()
             logger.info(f"Telegram message sent to {target_chat}: {message[:20]}...")
+            return True
         except Exception as e:
             logger.error(f"Failed to send Telegram message: {e}")
+            return False
 
     def send_signal(self, message):
         """Sends a message specifically to the Signal Channel."""
         if self.signal_channel_id:
-            self.send_message(message, chat_id=self.signal_channel_id)
+            return self.send_message(message, chat_id=self.signal_channel_id)
         else:
             logger.warning("Signal Channel ID not set. Skipping signal broadcast.")
+            return False
 
     def send_photo(self, photo_path, caption=""):
         """Sends a photo to the configured chat."""
