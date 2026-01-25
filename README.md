@@ -51,6 +51,7 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 | --- | --- |
 | `/scan` | **Master Dashboard**: View Trend Bias, RSI, checklist progress, and exact levels the bot is hunting. |
 | `/status` | **Wallet & Health**: Check Real-time Equity (Demo/Live), connection stats, and bridge latency. |
+| `/open` | **Live Positions**: Fetches *True* Broker Positions directly from Bybit/MT5 API (Bypasses local cache). |
 | `/strategy` | **Rules Cheat Sheet**: Displays the exact A+ Operator logic. |
 | `/risk [val]` | **Adjust Risk**: Set % per trade (e.g., `/risk 1.0`). |
 | `/trail [on/off]`| **Trail Toggle**: Enable/Disable Trailing Stop logic. |
@@ -59,7 +60,21 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 | `/test [SYM]` | **Force Entry**: Open a micro test trade to verify connection (Remembers Ticket ID). |
 | `/canceltest` | **Close Test**: Closes the specific test trade opened by the bot. |
 | `/testsignalmessage` | **Broadcast Check**: Sends a test message to the Signal Channel. |
+| `/debugbybit` | **Deep Diagnostics**: Returns raw JSON from Bybit API to troubleshoot balance/connection issues. |
 | `/chart [SYM]` | **Visualizer**: Request a live chart snapshot of any symbol. |
+
+### 🛠 Auto-Sync Watchdog
+The bot includes a self-healing `watchdog.bat` that:
+1.  **Auto-Updates**: Force-syncs with the latest code on startup (`git reset --hard origin/main`).
+2.  **Auto-Restarts**: Relaunches the bot if it crashes.
+3.  **Auto-Installs**: Checks `requirements.txt` on every run.
+
+### 🌍 Session Routing (Strict)
+- **Crypto** (`BTC, ETH, SOL...`) -> **Always Bybit**
+- **Forex/Indices** -> **Always MT5**, routed by session:
+  - **Asia**: `USDJPY, AUDUSD, NZDUSD`
+  - **London**: `EURUSD, GBPUSD, XAUUSD`
+  - **New York**: `XAUUSD, US30, NAS100`
 
 ## 🚀 Getting Started
 
