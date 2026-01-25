@@ -364,15 +364,21 @@ class MT5Bridge:
             logger.error(f"MT5 Order Failed: {err_code} - {err_msg}")
             
             # RETRY with Fallback Filling Modes
-            if err_code == 10013 or err_code == 10014 or err_code == 10015: # Invalid Req / Volume / Price
+            # 10030 = Unsupported Filling Mode, 10013 = Invalid Request (sometimes filling related)
+            if err_code in [10030, 10013, 10014, 10015, 10029]: 
                 for alt_filling in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
                     if alt_filling == filling: continue
+                    
                     request["type_filling"] = alt_filling
-                    logger.info(f"MT5: Retrying with filling: {alt_filling}")
-                    result = mt5.order_send(request)
-                    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                        logger.info(f"Order Success on Retry! Ticket: {result.order}")
-                        return result.order
+                    logger.info(f"MT5: Retrying with filing mode: {alt_filling}")
+                    
+                    retry_res = mt5.order_send(request)
+                    if retry_res and retry_res.retcode == mt5.TRADE_RETCODE_DONE:
+                        logger.info(f"✅ Order Success on Retry (Mode {alt_filling})! Ticket: {retry_res.order}")
+                        return retry_res.order
+                    else:
+                        r_code = retry_res.retcode if retry_res else "None"
+                        logger.warning(f"Retry (Mode {alt_filling}) Failed: {r_code}")
             
             return None
             
