@@ -481,7 +481,7 @@ class TelegramBot:
                 
             risk_pct = context['position_sizer'].default_risk_pct if 'position_sizer' in context else "N/A"
             max_loss = context['risk_manager'].max_session_loss if 'risk_manager' in context else "N/A"
-            news_mode = context['risk_manager'].news_mode_enabled if 'risk_manager' in context else "N/A"
+            news_mode = context['risk_manager'].news_filter_enabled if 'risk_manager' in context else "N/A"
             
             trailing = "N/A"
             if 'mt5_trade_manager' in context:
