@@ -22,7 +22,7 @@ def debug_mt5():
         info = mt5.symbol_info(v)
         if info:
             print(f"   ✅ FOUND: '{v}' (Path: {info.path})")
-            print(f"      - Selectable: {info.selectable}")
+            print(f"      - Selected: {info.select}")
             print(f"      - Visible: {info.visible}")
             found_any = True
         else:
