@@ -8,5 +8,4 @@ mplfinance
 schedule
 requests
 pytz
-lightweight-charts-python
-playwright
+
