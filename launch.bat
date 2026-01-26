@@ -68,6 +68,17 @@ REM --- 6. Pre-Flight Checks ---
 echo [WATCHDOG] Running System Diagnostics...
 echo ---------------------------------------------------
 %PYTHON_CMD% debug_mt5.py
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] MT5 Connection Failed!
+    echo [SOLUTION] 1. Open your MetaTrader 5 Terminal MANUALLY.
+    echo            2. Login to your account.
+    echo            3. Enable 'Algo Trading' (Green Play Button).
+    echo            4. Leave the terminal OPEN and try again.
+    echo.
+    pause
+    exit /b 1
+)
 echo ---------------------------------------------------
 %PYTHON_CMD% debug_bybit_v2.py
 echo ---------------------------------------------------
