@@ -15,7 +15,7 @@ class SessionManager:
         # Define Sessions (UTC Times) with Specific Watchlists
         self.sessions = {
             "Asia": {
-                "start": 0, "end": 8,
+                "start": 22, "end": 8, # Sydney Opens 22:00 UTC
                 "symbols": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD", "EURUSD"],
             },
             "London": {
@@ -48,9 +48,17 @@ class SessionManager:
             start = config["start"]
             end = config["end"]
             
-            # Simple check for same-day windows
-            # If 00:00 to 08:00, straight forward checking
-            if start <= current_hour < end:
+            is_active = False
+            if start < end:
+                # Normal Day Session (e.g. 08 to 16)
+                if start <= current_hour < end:
+                    is_active = True
+            else:
+                # Overnight Session (e.g. 22 to 08)
+                if current_hour >= start or current_hour < end:
+                    is_active = True
+            
+            if is_active:
                 active_sessions.append(name)
                 for sym in config["symbols"]:
                     active_symbols.add(sym)
