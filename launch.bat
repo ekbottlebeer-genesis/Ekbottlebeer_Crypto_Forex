@@ -82,6 +82,9 @@ if %errorlevel% neq 0 (
 echo ---------------------------------------------------
 %PYTHON_CMD% debug_bybit_v2.py
 echo ---------------------------------------------------
+echo [WATCHDOG] Checking Time & Sessions...
+%PYTHON_CMD% debug_session.py
+echo ---------------------------------------------------
 
 REM --- 7. Launch Brain ---
 echo [WATCHDOG] All systems go. Starting Bot...
