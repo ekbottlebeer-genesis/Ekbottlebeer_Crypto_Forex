@@ -672,19 +672,17 @@ class TelegramBot:
         elif cmd == '/strategy':
             return (
                 "📘 **Ekbottlebeer A+ Operator Strategy Table**\n\n"
-                "**1. Refined HTF Sweep Filter (1H):**\n"
-                "• **Body Close Rule**: Sweep is ONLY valid if the candle body closes back inside the level. Acceptance outside invalidates.\n"
-                "• **Wick Proportion**: Wick beyond level must be >= 30% of total candle length.\n"
-                "• **Time-to-Reclaim**: Price must trade back inside level within 3 candles.\n"
-                "• **Counter-Structure**: Setup is KILLED if price breaks the 'Extreme' before MSS.\n\n"
+                "**1. HTF Sweep (1H):**\n"
+                "• **Wick >= 30%** + **Body Close Inside** Required.\n"
+                "• **Sessions**: London & NY Preferred (Asia Allowed).\n\n"
                 "**2. LTF MSS (5m):**\n"
-                "• Must occur within 4 hours of sweep.\n\n"
-                "**3. RSI Confluence:**\n"
-                "• **Longs**: RSI > 40 (Momentum) and < 70 (No Overbought).\n"
-                "• **Shorts**: RSI < 60 (Momentum) and > 30 (No Oversold).\n\n"
-                "**4. FVG Entry:**\n"
-                "• Discount (Longs) or Premium (Shorts).\n"
-                "• Spread must be < 5.0."
+                "• **Window**: Must occur within **90 Mins** of sweep. (>90m = Expired).\n\n"
+                "**3. Reaction Entry (No Limits):**\n"
+                "• **Setup Queued**: Bot waits for 5m candle at FVG level.\n"
+                "• **Trigger**: Candle must **TAP** level + **CLOSE** Rejecting it (Wick) + **Correct Color**.\n\n"
+                "**4. Filters:**\n"
+                "• **RSI (Permission)**: Structure overrides RSI. (Long: >40/<70 Ideal).\n"
+                "• **News**: Pauses 30m before High Impact USD events."
             )
 
         else:

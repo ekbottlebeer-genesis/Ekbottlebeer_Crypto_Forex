@@ -31,6 +31,7 @@ class StateManager:
             "current_session": "waiting",
             "active_sweeps": {}, 
             "active_trades": [], 
+            "pending_setups": [], # New: For Reaction Confirmation Phase
             "last_scan_data": {}, 
             "watchlists": {
                 "ASIA": ["USDJPY", "AUDUSD"],
@@ -95,6 +96,16 @@ class StateManager:
 
     def remove_trade(self, ticket):
         self.state['active_trades'] = [t for t in self.state['active_trades'] if t.get('ticket') != ticket]
+        self.save_state()
+
+    def add_pending_setup(self, setup_data):
+        # Remove existing for same symbol to avoid dupes/stale
+        self.remove_pending_setup(setup_data['symbol'])
+        self.state['pending_setups'].append(setup_data)
+        self.save_state()
+
+    def remove_pending_setup(self, symbol):
+        self.state['pending_setups'] = [s for s in self.state['pending_setups'] if s.get('symbol') != symbol]
         self.save_state()
 
     def updates_session_pnl(self, amount):

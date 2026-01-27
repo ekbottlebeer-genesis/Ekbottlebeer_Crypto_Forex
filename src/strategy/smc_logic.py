@@ -139,8 +139,12 @@ class SMCLogic:
     def detect_mss(self, ltf_candles: pd.DataFrame, bias_direction, sweep_time):
         current_time = ltf_candles.iloc[-1]['time']
         time_diff = (current_time - sweep_time).total_seconds() / 3600
-        if time_diff > 4.0:
-            return {'mss': False, 'reason': 'Expired'}
+        
+        # STRICT RULE: MSS must be WITHIN 90 mins (User removed 30m min limit)
+        # if time_diff < 0.5: return ... (Removed)
+        
+        if time_diff > 1.5:
+             return {'mss': False, 'reason': 'Expired (>90m)'}
 
         ltf_candles = self.find_swings(ltf_candles)
         current_candle = ltf_candles.iloc[-1]

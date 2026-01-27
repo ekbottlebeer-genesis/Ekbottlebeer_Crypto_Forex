@@ -20,13 +20,14 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 - **Refined SMC Strategy** (`smc_logic.py`):
   1.  **Strict HTF Sweep Filter**:
       - **Body Close Rule**: Candle body MUST close back inside the level.
-      - **Wick Proportion Filter**: Wick must be >= 30% of total length.
-      - **3-Candle Reclaim**: Price must trade back inside within 3 candles.
-  2.  **LTF MSS**: Waits for a Market Structure Shift on the 5m timeframe (must occur within 4 hours).
-  3.  **RSI Confluence**:
-      - **Longs**: RSI > 40 (Momentum) and < 70 (No Overbought).
-      - **Shorts**: RSI < 60 (Momentum) and > 30 (No Oversold).
-  4.  **Femto-Second Decisioning**: Checks FVG entries and Risk:Reward ratios in milliseconds.
+      - **Wick Low**: Wick must be >= 30% of total length.
+  2.  **LTF MSS**: 5m Market Structure Shift.
+      - **Strict Window**: Must occur **within 90 minutes** after sweep. (>90m = Invalid).
+  3.  **Reaction Entry**:
+      - **No Blind Limits**: Entries go to "Pending Queue".
+      - **Confirmation**: 5m Candle must TAP level + CLOSE Rejecting it (Wick) + Correct Color.
+  4.  **RSI Role**:
+      - **Permission Only**: Valid Structure/MSS overrides RSI warnings.
 
 ### ✋ The Hand (Execution)
 **Goal**: Execute and manage trades with surgical precision.
@@ -72,7 +73,7 @@ The bot includes a self-healing `watchdog.bat` that:
 ### 🌍 Session Routing (Strict)
 - **Crypto** (`BTC, ETH, SOL...`) -> **Always Bybit**
 - **Forex/Indices** -> **Always MT5**, routed by session:
-  - **Asia**: `USDJPY, AUDUSD, NZDUSD`
+  - **Asia**: `USDJPY, AUDUSD, NZDUSD` (Management Only - No Hunting)
   - **London**: `EURUSD, GBPUSD, XAUUSD`
   - **New York**: `XAUUSD, US30, NAS100`
 

@@ -224,6 +224,83 @@ def main():
             # Combine loop: Watchlist (Hunting) + Active Trades (Managing)
             all_monitored_symbols = watchlist.union(active_trade_symbols)
             
+            # Combine loop: Watchlist (Hunting) + Active Trades (Managing)
+            all_monitored_symbols = watchlist.union(active_trade_symbols)
+            
+            # --- 1.5. Manage Pending Setups (Reaction Mode) ---
+            pending_setups = state_manager.state.get('pending_setups', [])
+            for setup in pending_setups[:]: # Copy to iterate
+                symbol = setup['symbol']
+                bridge = bybit_bridge if symbol in session_manager.crypto_symbols else mt5_bridge
+                
+                # 1. Expiration (2h)
+                try:
+                    created_ts = datetime.fromisoformat(setup['created_at'])
+                    if (datetime.now() - created_ts).total_seconds() > 7200:
+                        state_manager.remove_pending_setup(symbol)
+                        continue
+                except: pass
+
+                # 2. Check Reaction
+                ltf_tf = '5' if bridge == bybit_bridge else 5
+                candles = bridge.get_candles(symbol, timeframe=ltf_tf, num_candles=2)
+                if candles is None or candles.empty: continue
+                
+                last = candles.iloc[-1]
+                entry_level = setup['entry']
+                direction = setup['direction']
+                triggered = False
+                
+                # LOGIC: Tap + Reject + Color
+                if direction == 'bullish':
+                     if last['low'] <= entry_level and last['close'] > entry_level and last['close'] > last['open']:
+                         triggered = True
+                     # Invalidation: Close below SL
+                     if last['close'] < setup['sl']:
+                         state_manager.remove_pending_setup(symbol)
+                         continue
+                else:
+                     if last['high'] >= entry_level and last['close'] < entry_level and last['close'] < last['open']:
+                         triggered = True
+                     # Invalidation
+                     if last['close'] > setup['sl']:
+                         state_manager.remove_pending_setup(symbol)
+                         continue
+                         
+                if triggered:
+                     # EXECUTE MARKET ORDER
+                     balance = bridge.get_balance()
+                     inst_info = bridge.get_instrument_info(symbol)
+                     units = position_sizer.calculate_position_size(balance, setup['entry'], setup['sl'], symbol, instrument_info=inst_info)
+                     
+                     if units > 0:
+                         logger.info(f"⚡ REACTION CONFIRMED: {symbol}. FIRING MARKET ORDER.")
+                         res_ticket = None
+                         if bridge == bybit_bridge:
+                             side = 'Buy' if direction == 'bullish' else 'Sell'
+                             res_ticket = bridge.place_order(symbol, side, 'Market', units, stop_loss=setup['sl'], take_profit=setup['tp'])
+                         else:
+                             o_type = 'market_buy' if direction == 'bullish' else 'market_sell'
+                             res_ticket = bridge.place_limit_order(symbol, o_type, 0.0, setup['sl'], setup['tp'], units)
+                         
+                         if res_ticket:
+                             bot.send_message(f"⚡ **REACTION HIT**: Executed Market Order on {symbol}\nTicket: `{res_ticket}`")
+                             state_manager.remove_pending_setup(symbol)
+                         else:
+                             # Retry logic (Half Risk)
+                             half_units = units * 0.5
+                             if bridge == bybit_bridge:
+                                 res_ticket = bridge.place_order(symbol, side, 'Market', half_units, stop_loss=setup['sl'], take_profit=setup['tp'])
+                             else:
+                                 res_ticket = bridge.place_limit_order(symbol, o_type, 0.0, setup['sl'], setup['tp'], half_units)
+                             
+                             if res_ticket:
+                                 bot.send_message(f"⚠️ **RESCUE**: Executed Half Risk on {symbol}")
+                                 state_manager.remove_pending_setup(symbol)
+                     else:
+                         bot.send_message(f"⚠️ Low Balance for Reaction Trade: {symbol}")
+                         state_manager.remove_pending_setup(symbol)
+
             # --- 2. Market Scan Loop ---
             
             # Print Header
@@ -283,6 +360,10 @@ def main():
                 is_crypto = symbol in session_manager.crypto_symbols
                 market_status = state_manager.state.get('crypto_status', 'active') if is_crypto else state_manager.state.get('forex_status', 'active')
                 
+                # OLD SESSION KILLA REMOVED per user request.
+                # Asia hunting is back ON.
+                # if is_asia and not is_crypto: ... (Deleted)
+
                 # Scan Condition: 
                 # 1. Symbol in Session Watchlist
                 # 2. Global System Active
@@ -305,16 +386,6 @@ def main():
                 if not tick_scan: continue
                 
                 spread = tick_scan['ask'] - tick_scan['bid']
-                # Define max spread (e.g. 2.0 pips for FX, or ratio for Crypto)
-                # For MVP: Hardcoded safety or config?
-                # FX: 0.00020 (2 pips in 5-digit broker is 20 points).
-                # Crypto: $0.50 on BTC?
-                # Let's trust risk.check_spread defaults or pass reasonable threshold.
-                
-                # Using a generic buffer. Ideally configurable per asset class.
-                # FX Pips vs Crypto Price.
-                # Simplified: If spread > 0.0003 (3 pips) for Forex pairs.
-                # Guardrails should handle the logic, we pass value.
                 
                 if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
                      spread_list.append(symbol)
@@ -400,19 +471,17 @@ def main():
                              if (30 <= current_rsi <= 60): 
                                 rsi_ok = True
                              else:
-                                logger.info(f"   📉 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 30-60 for Short)")
+                                logger.warning(f"   📉 {symbol:<10} | MSS ✅ | RSI WARNING: {current_rsi:.1f} (Ideal 30-60)")
                         else: # We swept lows -> Bullish Bias (Long)
                              # Strategy: RSI > 40 (Momentum) and < 70 (No Overbought)
                              if (40 <= current_rsi <= 70): 
                                 rsi_ok = True
                              else:
-                                logger.info(f"   📈 {symbol:<10} | MSS ✅ | RSI Fail: {current_rsi:.1f} (Need 40-70 for Long)")
+                                logger.warning(f"   📈 {symbol:<10} | MSS ✅ | RSI WARNING: {current_rsi:.1f} (Ideal 40-70)")
                         
-                        if not rsi_ok:
-                            state_manager.update_scan_data(symbol, {
-                                'bias': 'PENDING', 'rsi': current_rsi, 'status': "MSS Valid", 'waiting_on': "RSI Range", 'checkpoint': 'FVG'
-                            })
-                            continue
+                        # UPDATED RULE 4: RSI is PERMISSION ONLY. Structure Overrides.
+                        # We do NOT continue/skip here. We just log the warning above.
+                        # if not rsi_ok: continue <-- REMOVED
                         
                         # 5. Find FVG Entry (Premium/Discount Linked)
                         direction_bias = 'bearish' if sweep['side'] == 'buy_side' else 'bullish'
@@ -505,56 +574,25 @@ def main():
                                 logger.error(f"Failed to generate auto-evidence chart: {e_vis}")
 
                             if position_sizer.check_risk_reward(entry_price, sl_price, tp_price):
-                                # Fetch instrument info (contract size, volume steps)
-                                inst_info = bridge.get_instrument_info(symbol)
-                                units = position_sizer.calculate_position_size(balance, entry_price, sl_price, symbol, instrument_info=inst_info)
+                                # NEW EXECUTION LOGIC: Wait for Reaction
+                                logger.info(f"💎 A+ SETUP QUEUED for {symbol}. Waiting for Reaction Candle...")
                                 
-                                if units > 0:
-                                    logger.info(f"🚀 EXECUTING {direction_bias.upper()} on {symbol}. Units: {units:.4f}")
-                                    
-                                    result_ticket = None
-                                    if bridge == bybit_bridge:
-                                        side = 'Buy' if direction_bias == 'bullish' else 'Sell'
-                                        # Use standard place_order
-                                        result_ticket = bridge.place_order(symbol, side, 'Limit', units, price=entry_price, stop_loss=sl_price, take_profit=tp_price)
-                                    else:
-                                        o_type = 'buy_limit' if direction_bias == 'bullish' else 'sell_limit'
-                                        result_ticket = bridge.place_limit_order(symbol, o_type, entry_price, sl_price, tp_price, units)
-                                    
-                                    if result_ticket:
-                                        exec_msg = (
-                                            f"🚀 **ORDER EXECUTED** 🚀\n"
-                                            f"{symbol} {direction_bias.upper()} Limit Placed.\n"
-                                            f"📦 **Qty**: `{units:.4f}`\n"
-                                            f"🎫 **Ticket**: `{result_ticket}`"
-                                        )
-                                        bot.send_message(exec_msg)
-                                    else:
-                                        # RETRY LOGIC: Half Risk Rescue
-                                        logger.warning(f"⚠️ Order failed for {symbol}. Retrying with HALF RISK...")
-                                        
-                                        half_units = units * 0.5
-                                        # Ensure min volume check logic applies? 
-                                        # Or just rely on bridges to reject again if too small.
-                                        
-                                        half_ticket = None
-                                        if bridge == bybit_bridge:
-                                            half_ticket = bridge.place_order(symbol, side, 'Limit', half_units, price=entry_price, stop_loss=sl_price, take_profit=tp_price)
-                                        else:
-                                            half_ticket = bridge.place_limit_order(symbol, o_type, entry_price, sl_price, tp_price, half_units)
-                                            
-                                        if half_ticket:
-                                            rescue_msg = (
-                                                f"⚠️ **MARGIN RESCUE EXECUTED** ⚠️\n"
-                                                f"{symbol} Limit Placed at **HALF RISK**.\n"
-                                                f"📦 **Qty**: `{half_units:.4f}` (Reduced)\n"
-                                                f"🎫 **Ticket**: `{half_ticket}`"
-                                            )
-                                            bot.send_message(rescue_msg)
-                                        else:
-                                            bot.send_message(f"❌ **EXECUTION FAILED**: {symbol} rejected even at Half Risk.")
-                                else:
-                                    bot.send_message(f"⚠️ **MARGIN LOW**: {symbol} found but 0 units calculated. (Balance: {balance:.2f})")
+                                setup_data = {
+                                    'symbol': symbol,
+                                    'direction': direction_bias, # 'bullish' or 'bearish'
+                                    'entry': entry_price,
+                                    'sl': sl_price,
+                                    'tp': tp_price,
+                                    'created_at': datetime.now().isoformat(),
+                                    'fvg_bottom': setup.get('bottom', entry_price),
+                                    'fvg_top': setup.get('top', entry_price)
+                                }
+                                state_manager.add_pending_setup(setup_data)
+                                
+                                bot.send_message(
+                                    f"⏳ **SETUP QUEUED**: {symbol} {direction_bias.upper()}\n"
+                                    f"Waiting for **Reaction Candle** at `{entry_price:.5f}`..."
+                                )
                             else:
                                 bot.send_message(f"⚠️ **RR INVALID**: {symbol} setup found but RR < 2.0 (Calculated: {rr_ratio:.2f})") 
             
