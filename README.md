@@ -73,7 +73,7 @@ The bot includes a self-healing `watchdog.bat` that:
 ### 🌍 Session Routing (Strict)
 - **Crypto** (`BTC, ETH, SOL...`) -> **Always Bybit**
 - **Forex/Indices** -> **Always MT5**, routed by session:
-  - **Asia**: `USDJPY, AUDUSD, NZDUSD` (Management Only - No Hunting)
+  - **Asia**: `USDJPY, AUDUSD, NZDUSD` (Hunting Active)
   - **London**: `EURUSD, GBPUSD, XAUUSD`
   - **New York**: `XAUUSD, US30, NAS100`
 
