@@ -248,24 +248,34 @@ class BybitBridge:
             close_qty = str(qty) if qty else str(size)
             
             # 2. Place Reduce-Only Market Order
-            resp = self.session.place_order(
-                category="linear",
-                symbol=symbol,
-                side=close_side,
-                orderType="Market",
-                qty=close_qty,
-                reduceOnly=True
-            )
+            import time
+            for i in range(3):
+                try:
+                    resp = self.session.place_order(
+                        category="linear",
+                        symbol=symbol,
+                        side=close_side,
+                        orderType="Market",
+                        qty=close_qty,
+                        reduceOnly=True
+                    )
+                    
+                    if resp['retCode'] == 0:
+                         logger.info(f"Bybit Position Closed: {symbol} {close_side} {close_qty}")
+                         return True
+                    else:
+                         logger.warning(f"Bybit Close Attempt {i+1} Failed: {resp['retMsg']}")
+                         time.sleep(1)
+                except Exception as e:
+                    logger.warning(f"Bybit Close Exception {i+1}: {e}")
+                    time.sleep(1)
             
-            if resp['retCode'] == 0:
-                 logger.info(f"Bybit Position Closed: {symbol} {close_side} {close_qty}")
-                 return True
-            else:
-                 logger.error(f"Bybit Close Failed: {resp['retMsg']}")
-                 return False
+            logger.error(f"Bybit Close Failed after 3 attempts.")
+            return False
                  
         except Exception as e:
             logger.error(f"Bybit Close Error: {e}")
+            return False
     def get_all_positions(self):
         """Returns a list of all open positions with size > 0."""
         if not self.session: return []
