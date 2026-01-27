@@ -270,6 +270,10 @@ def main():
                             # price_to_check = tick['bid'] if trade['direction'] == 'long' else tick['ask'] # Correction: Long closes on Bid, Short on Ask. Correct.
                             price_to_check = tick['bid'] if trade['direction'] == 'long' else tick['ask']
                             trade_mgr.manage_active_trade(trade, price_to_check, ltf_candles=mgmt_candles)
+                    
+                    # CRITICAL: If we have an active trade, DO NOT HUNT for new ones on this symbol.
+                    # Prevent stacking/double entry.
+                    continue
 
                 # --- B. Hunt for Setups (SMC Logic) ---
                 # Check Global Status

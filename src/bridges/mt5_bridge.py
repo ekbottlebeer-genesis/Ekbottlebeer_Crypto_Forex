@@ -351,8 +351,9 @@ class MT5Bridge:
             "deviation": 50, # Increased deviation for slippage
             "magic": 123456,
             "comment": comment,
-            "type_time": mt5.ORDER_TIME_GTC,
+            "type_time": mt5.ORDER_TIME_SPECIFIED,
             "type_filling": filling,
+            "expiration": int(datetime.now().timestamp() + 14400) # 4 Hour Expiry (Zombie Prevention)
         }
         
         logger.info(f"MT5 sending: {request}")
