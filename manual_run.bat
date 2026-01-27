@@ -3,6 +3,9 @@ title Manual Debug Run
 echo [DEBUG] Manual Launch - Window will stay open.
 echo.
 
+echo [DEBUG] 0. Force Update...
+git pull
+
 echo [DEBUG] 1. Activating VENV...
 if exist ".venv\Scripts\activate.bat" (
     call ".venv\Scripts\activate.bat"
