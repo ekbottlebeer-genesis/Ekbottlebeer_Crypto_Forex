@@ -3,6 +3,9 @@ import os
 import pandas as pd
 import mplfinance as mpf
 import numpy as np
+import matplotlib
+matplotlib.use('Agg') # Force non-GUI backend for stability
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
