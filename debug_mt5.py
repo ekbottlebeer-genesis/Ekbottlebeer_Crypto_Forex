@@ -13,6 +13,17 @@ def debug_mt5():
     print(f"✅ MT5 Connected. Terminal: {mt5.terminal_info().name}")
     print(f"   Account: {mt5.account_info().login} | Server: {mt5.account_info().server}")
     
+    # 1.5 Deep Permission Check
+    acc = mt5.account_info()
+    term = mt5.terminal_info()
+    
+    print("\n🔐 Permission Checks:")
+    print(f"   - Account Trade Allowed: {'✅ YES' if acc.trade_allowed else '❌ NO (Read-Only/Investor Password?)'}")
+    print(f"   - EA/Algo Trading Allowed: {'✅ YES' if acc.trade_expert else '❌ NO (Toolbar Button Disabled?)'}")
+    print(f"   - Terminal Connected: {'✅ YES' if term.connected else '❌ NO (Check Internet)'}")
+    print(f"   - Trade Mode: {acc.trade_mode} (0=Demo, 1=Contest, 2=Real)")
+
+    
     # 2. Check XAUUSD variants
     variants = ["XAUUSD", "GOLD", "XAUUSD.a", "XAUUSD.m", "XAUUSD.pro", "Gold", "XAU_USD"]
     print("\n🔍 Checking specific symbols...")
