@@ -418,8 +418,8 @@ class MT5Bridge:
         logger.error(f"Modify Failed after {attempts} attempts: {result.comment}")
         return False
 
-    def close_position(self, ticket, pct=1.0):
-        """Closes a position (or partial)."""
+    def close_position(self, ticket, pct=1.0, qty=None):
+        """Closes a position (or partial). 'qty' arg is ignored (compatibility)."""
         if not self.connected: self.connect()
         
         # 1. Get position details (volume)
