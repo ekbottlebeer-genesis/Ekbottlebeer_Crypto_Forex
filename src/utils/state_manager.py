@@ -21,24 +21,48 @@ class StateManager:
                 logger.error(f"Failed to load state: {e}")
         
         # Default State
-        return {
+        default_state = {
             "system_status": "active",
             "crypto_status": "active",
             "forex_status": "active",
             "last_heartbeat": None,
             "session_pnl": 0.0,
+            "last_pnl_date": datetime.now().strftime("%Y-%m-%d"), # Track date
             "current_session": "waiting",
-            "active_sweeps": {}, # {symbol: {level: 1.23, side: 'buy', timestamp: ...}}
-            "active_trades": [], # {symbol: {ticket: 123, entry: ..., sl: ..., tp: ...}}
-            "last_scan_data": {}, # {symbol: {bias: ..., rsi: ..., status: ..., waiting_on: ...}}
+            "active_sweeps": {}, 
+            "active_trades": [], 
+            "last_scan_data": {}, 
             "watchlists": {
                 "ASIA": ["USDJPY", "AUDUSD"],
                 "LONDON": ["GBPUSD", "EURUSD", "XAUUSD"],
-                "LONDON": ["GBPUSD", "EURUSD", "XAUUSD"],
                 "NY": ["XAUUSD", "US30", "NAS100"]
             },
-            "trade_history": [] # List of closed trades {symbol, direction, pnl, result}
+            "trade_history": [] 
         }
+        
+        # Check reset logic on load
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        if os.path.exists(self.filepath):
+            try:
+                with open(self.filepath, "r") as f:
+                    state = json.load(f)
+                    
+                    # DATE CHECK: Reset PnL if new day
+                    saved_date = state.get('last_pnl_date', "1970-01-01")
+                    if saved_date != current_date:
+                        logger.info(f"🔄 NEW DAY DETECTED: Resetting Session PnL (Was: {state.get('session_pnl', 0)})")
+                        state['session_pnl'] = 0.0
+                        state['last_pnl_date'] = current_date
+                        # Auto-unpause if paused due to loss?
+                        if state.get('system_status') == 'paused':
+                             logger.info("🔄 Auto-Resuming System for New Day.")
+                             state['system_status'] = 'active'
+                             
+                    return state
+            except Exception as e:
+                logger.error(f"Failed to load state: {e}")
+                
+        return default_state
 
     def save_state(self):
         """Persists current state to JSON."""
