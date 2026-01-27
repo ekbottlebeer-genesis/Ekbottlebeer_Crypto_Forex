@@ -641,11 +641,6 @@ class TelegramBot:
                  bridge = context['bybit_bridge'] if b_type == 'bybit' else context['mt5_bridge']
                  
                  # Close
-                 res = bridge.close_position(symbol, qty=None) # Bybit uses symbol, MT5 uses ticket usually.
-                 # Wait, bridge.close_position signature differs?
-                 # Bybit: close_position(symbol, qty)
-                 # MT5: close_position(ticket, pct)
-                 
                  success = False
                  if b_type == 'bybit':
                      success = bridge.close_position(symbol)
