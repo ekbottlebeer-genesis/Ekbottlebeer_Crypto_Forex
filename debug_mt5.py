@@ -11,6 +11,19 @@ def debug_mt5():
         return
 
     print(f"✅ MT5 Connected. Terminal: {mt5.terminal_info().name}")
+    
+    # 1.2 Explicit Login Check
+    login_id = int(os.getenv("MT5_LOGIN", 0))
+    password = os.getenv("MT5_PASSWORD", "")
+    server = os.getenv("MT5_SERVER", "")
+    
+    print(f"\n🔐 Authenticating with: {login_id} on {server}...")
+    if mt5.login(login=login_id, password=password, server=server):
+        print(f"   ✅ LOGIN SUCCESSFUL! Protocol: {mt5.terminal_info().name}")
+    else:
+        print(f"   ❌ LOGIN FAILED! Error: {mt5.last_error()}")
+        print("      (Check your .env password and server spelling carefully)")
+    
     print(f"   Account: {mt5.account_info().login} | Server: {mt5.account_info().server}")
     
     # 1.5 Deep Permission Check
