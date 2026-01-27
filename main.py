@@ -253,15 +253,25 @@ def main():
                 
                 # LOGIC: Tap + Reject + Color
                 if direction == 'bullish':
-                     if last['low'] <= entry_level and last['close'] > entry_level and last['close'] > last['open']:
-                         triggered = True
+                     if last['low'] <= entry_level:
+                         if last['close'] > entry_level and last['close'] > last['open']:
+                             triggered = True
+                         else:
+                             # MISSED LOG: Tapped but failed validation
+                             logger.info(f"⏳ {symbol} TAP: {last['low']:.5f} <= {entry_level:.5f}, but Close {last['close']:.5f} not valid (Color/Reject)")
+                     
                      # Invalidation: Close below SL
                      if last['close'] < setup['sl']:
                          state_manager.remove_pending_setup(symbol)
                          continue
                 else:
-                     if last['high'] >= entry_level and last['close'] < entry_level and last['close'] < last['open']:
-                         triggered = True
+                     if last['high'] >= entry_level:
+                         if last['close'] < entry_level and last['close'] < last['open']:
+                             triggered = True
+                         else:
+                             # MISSED LOG
+                             logger.info(f"⏳ {symbol} TAP: {last['high']:.5f} >= {entry_level:.5f}, but Close {last['close']:.5f} not valid")
+
                      # Invalidation
                      if last['close'] > setup['sl']:
                          state_manager.remove_pending_setup(symbol)
@@ -285,6 +295,23 @@ def main():
                          
                          if res_ticket:
                              bot.send_message(f"⚡ **REACTION HIT**: Executed Market Order on {symbol}\nTicket: `{res_ticket}`")
+                             
+                             # VISUAL VERIFICATION: Send Chart
+                             try:
+                                 # Re-fetch context for chart
+                                 chart_5m = bridge.get_candles(symbol, timeframe=ltf_tf, num_candles=100)
+                                 chart_zones = {
+                                     'trade': {
+                                         'entry': setup['entry'], 'sl': setup['sl'], 'tp': setup['tp']
+                                     }
+                                 }
+                                 
+                                 img = visualizer.generate_chart(chart_5m, symbol, zones=chart_zones, filename=f"trade_{res_ticket}.png")
+                                 if img:
+                                     bot.send_photo(img, caption=f"📸 **Verification**: {symbol} Entry\nTicket: `{res_ticket}`")
+                             except Exception as e:
+                                 logger.error(f"Failed to send verification chart: {e}")
+                                 
                              state_manager.remove_pending_setup(symbol)
                          else:
                              # Retry logic (Half Risk)
@@ -387,7 +414,7 @@ def main():
                 
                 spread = tick_scan['ask'] - tick_scan['bid']
                 
-                if not risk.check_spread(symbol, spread, max_spread_pips=5.0): # 5 pips/points flexible
+                if not risk.check_spread(symbol, spread, is_crypto=is_crypto):
                      spread_list.append(symbol)
                      continue
                 

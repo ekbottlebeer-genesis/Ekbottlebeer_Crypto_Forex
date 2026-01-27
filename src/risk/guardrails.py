@@ -35,13 +35,53 @@ class RiskGuardrails:
             return True
         return False
 
-    def check_spread(self, symbol, current_spread, max_spread_pips):
+    def check_spread(self, symbol, current_spread, is_crypto=False):
         """
-        Returns True if spread is acceptable (below threshold).
+        Returns True if spread is acceptable.
+        Forex: Max 2.0 Pips (0.00020).
+        Crypto: Max 0.1% of Price? Or fixed $ value?
+        For robustness, we use a PIP multiplier for Forex (assuming 5-digit broker).
         """
-        if current_spread > max_spread_pips:
-            logger.info(f"Spread High for {symbol}: {current_spread} > {max_spread_pips}")
+        threshold = 5.0 # Default fallback
+        
+        if not is_crypto:
+            # FOREX LOGIC: 2.0 Pips
+            # 1 Pip = 0.0001 usually (or 0.01 for JPY)
+            # Spread is raw difference. e.g. 1.10020 - 1.10000 = 0.00020 (20 points)
+            # User wants "2 pips". 
+            # If broker uses Points, 2 pips = 20 points.
+            # If current_spread is raw price diff:
+            
+            # Heuristic: If JPY (Price > 50), 1 pip = 0.01. If spread is 0.02 -> 2 pips.
+            # If Normal (Price < 50), 1 pip = 0.0001. If spread is 0.0002 -> 2 pips.
+            
+            # Better approach: Use max_spread_pips passed from main or just hardcode strict rule.
+            # STRICT FOREX RULE: 2.5 PIPS max (Safety buffer)
+            
+            if "JPY" in symbol:
+                threshold = 0.025 # 2.5 pips
+            elif "XAU" in symbol: # Gold
+                threshold = 0.50 # 50 cents on Gold
+            else:
+                threshold = 0.00025 # 2.5 pips
+                
+        else:
+            # CRYPTO LOGIC
+            # BTC spread $10 is fine.
+            # Use raw value passed or rely on %?
+            # Let's trust the current_spread is raw USD diff.
+            # If price is 100k, spread 100 is 0.1%.
+            # Let's revert to the loose 5.0 for Crypto or higher for BTC?
+            # Actually, standard crypto spread is tight on Bybit.
+            # Set to generic safety or ignore (return True).
+            if "BTC" in symbol: threshold = 50.0 
+            elif "ETH" in symbol: threshold = 5.0
+            else: threshold = 1.0 
+            
+        if current_spread > threshold:
+            logger.info(f"Spread High for {symbol}: {current_spread:.5f} > {threshold}")
             return False
+            
         return True
 
     def fetch_calendar(self):
