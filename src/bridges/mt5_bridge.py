@@ -451,6 +451,24 @@ class MT5Bridge:
         
         result = mt5.order_send(request)
         if result.retcode != mt5.TRADE_RETCODE_DONE:
+            # RETRY LOGIC for Close
+            err_code = result.retcode
+            if err_code in [10030, 10013, 10014, 10015, 10029]:
+                 logger.info(f"MT5: Close rejected (Code {err_code}). Auto-adjusting filling...")
+                 
+                 # Default is RETURN for close, try others
+                 current_filling = request["type_filling"]
+                 for alt_filling in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
+                    if alt_filling == current_filling: continue
+                    
+                    request["type_filling"] = alt_filling
+                    logger.info(f"MT5: Retrying Close with mode: {alt_filling}")
+                    
+                    retry_res = mt5.order_send(request)
+                    if retry_res and retry_res.retcode == mt5.TRADE_RETCODE_DONE:
+                        logger.info(f"✅ Position {ticket} Closed on Retry!")
+                        return True
+            
             logger.error(f"Close Failed: {result.comment}")
             return False
             
