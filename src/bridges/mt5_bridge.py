@@ -361,11 +361,12 @@ class MT5Bridge:
         if not result or result.retcode != mt5.TRADE_RETCODE_DONE:
             err_code = result.retcode if result else "NO_RESULT"
             err_msg = result.comment if result else "Unknown Error"
-            logger.error(f"MT5 Order Failed: {err_code} - {err_msg}")
             
-            # RETRY with Fallback Filling Modes
+            # RETRY LOGIC: Check for recoverable errors first
             # 10030 = Unsupported Filling Mode, 10013 = Invalid Request (sometimes filling related)
             if err_code in [10030, 10013, 10014, 10015, 10029]: 
+                logger.info(f"MT5: Broker requires diff filling mode (Code {err_code}). Adjusting...")
+                
                 for alt_filling in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
                     if alt_filling == filling: continue
                     
@@ -378,8 +379,10 @@ class MT5Bridge:
                         return retry_res.order
                     else:
                         r_code = retry_res.retcode if retry_res else "None"
-                        logger.warning(f"Retry (Mode {alt_filling}) Failed: {r_code}")
+                        # Keep this low noise unless all fail
             
+            # If we get here, all retries failed OR it was a fatal error
+            logger.error(f"MT5 Order Failed: {err_code} - {err_msg}")
             return None
             
         logger.info(f"Order Placed on MT5: {found_symbol} {order_type} @ {norm_price}, Ticket: {result.order}")
