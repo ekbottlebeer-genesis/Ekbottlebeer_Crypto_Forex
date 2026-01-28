@@ -2,7 +2,7 @@
 **"The Eye, The Brain, The Hand, The Mouth"**
 
 > **Current Status**: 🟢 LIVE / DEMO READY
-> **Version**: 1.3.0 (Robustness Update)
+> **Version**: 1.2.0 (Indices & Strategy Relaxed)
 
 ## 🏗 System Architecture
 
@@ -20,9 +20,9 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 - **Refined SMC Strategy** (`smc_logic.py`):
   1.  **Strict HTF Sweep Filter**:
       - **Body Close Rule**: Candle body MUST close back inside the level.
-      - **Wick Low**: Wick must be >= 30% of total length.
+      - **Wick Low**: Wick must be >= 20% of total length.
   2.  **LTF MSS**: 5m Market Structure Shift.
-      - **Strict Window**: Must occur **within 90 minutes** after sweep. (>90m = Invalid).
+      - **Strict Window**: Must occur **within 4 hours** after sweep candle close.
   3.  **Reaction Entry**:
       - **No Blind Limits**: Entries go to "Pending Queue".
       - **Confirmation**: 5m Candle must TAP level + CLOSE Rejecting it (Wick) + Correct Color.
