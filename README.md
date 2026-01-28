@@ -29,6 +29,23 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
   4.  **RSI Role**:
       - **Permission Only**: Valid Structure/MSS overrides RSI warnings.
 
+## 🧭 Strategy Reference (v1.2)
+**"The A+ Setup"**
+
+1.  **HTF Sweep (1 Hour)**
+    -   Price must wick a previous High/Low (20-candle lookback).
+    -   **Rejection**: Wick must be **>= 20%** of total candle.
+    -   **Close**: Body must close **opposite** to the sweep.
+
+2.  **LTF Logic (5 Minute)**
+    -   **MSS**: Must break the recent swing point within **4 Hours** of the sweep.
+    -   **Structure**: Break of Swing Low (for Short) or Swing High (for Long).
+
+3.  **Entry Trigger**
+    -   **FVG**: Fair Value Gap must exist in Premium (Short) or Discount (Long).
+    -   **Validation**: 5m Candle must TAP the level and CLOSE with rejection.
+    -   **Execution**: Market Order upon close.
+
 ### ✋ The Hand (Execution)
 **Goal**: Execute and manage trades with surgical precision.
 - **Dynamic Risk Engine**: 
