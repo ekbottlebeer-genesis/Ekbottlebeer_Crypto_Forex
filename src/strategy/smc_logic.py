@@ -68,7 +68,7 @@ class SMCLogic:
                 # 2. Wick Proportion Filter (>= 30% of total length)
                 total_len = candle['high'] - candle['low']
                 wick_len = candle['high'] - max(candle['open'], candle['close'])
-                if total_len > 0 and (wick_len / total_len) >= 0.3:
+                if total_len > 0 and (wick_len / total_len) >= 0.2:
                     
                     # 3. Time-to-Reclaim Rule
                     # From the sweep candle to current, has any closed back inside?
@@ -108,7 +108,7 @@ class SMCLogic:
                 total_len = candle['high'] - candle['low']
                 wick_len = min(candle['open'], candle['close']) - candle['low']
                 
-                if total_len > 0 and (wick_len / total_len) >= 0.3:
+                if total_len > 0 and (wick_len / total_len) >= 0.2:
                     reclaimed = False
                     for j in range(-i, 0):
                         if htf_candles.iloc[j]['close'] > period_low:
@@ -143,8 +143,8 @@ class SMCLogic:
         # STRICT RULE: MSS must be WITHIN 90 mins (User removed 30m min limit)
         # if time_diff < 0.5: return ... (Removed)
         
-        if time_diff > 1.5:
-             return {'mss': False, 'reason': 'Expired (>90m)'}
+        if time_diff > 4.0:
+            return {'mss': False, 'reason': 'Expired (>4h)'}
 
         ltf_candles = self.find_swings(ltf_candles)
         current_candle = ltf_candles.iloc[-1]
