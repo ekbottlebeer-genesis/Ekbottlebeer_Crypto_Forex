@@ -69,7 +69,7 @@ class TradeManager:
                             # PnL Estimation (Fallback if exact deal profit unknown)
                             estimated_pnl = 0.0
                             try:
-                                exit_price = price_to_check
+                                exit_price = current_price
                                 entry_price = trade.get('entry_price', exit_price)
                                 size = trade.get('size', 0)
                                 

@@ -208,9 +208,9 @@ def main():
             # Protect Active Trades (News)
             active_trades = state_manager.state.get('active_trades', [])
             if active_trades:
-                # We need to split trades by bridge/type or handle generically
-                # Simplified: Pass assuming bridge argument generic or loop handles
-                risk.protect_active_trades(active_trades, mt5_bridge) # TODO: Handle Bybit too
+                # Unified Bridge Map for Protection
+                bridge_map = {'mt5': mt5_bridge, 'bybit': bybit_bridge}
+                risk.protect_active_trades(active_trades, bridge_map)
 
             session_info = session_manager.get_current_session_info()
             current_sessions = session_info['sessions']

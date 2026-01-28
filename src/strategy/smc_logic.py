@@ -202,8 +202,6 @@ class SMCLogic:
                 gap_bottom = candle_a['high']
                 entry_price = gap_top
                 
-                # print(f"DEBUG: FVG Found Bullish. Top: {gap_top}, Eq: {eq_level}")
-                # Relaxed: Allow entry if price is < Eq OR within 10% of Eq?
                 # Strict: gap_top < eq_level
                 
                 if gap_top < eq_level: # Discount
@@ -215,7 +213,7 @@ class SMCLogic:
                 gap_bottom = candle_c['high']
                 entry_price = gap_bottom 
                 
-                # print(f"DEBUG: FVG Found Bearish. Bottom: {gap_bottom}, Eq: {eq_level}")
+
                 
                 if gap_bottom > eq_level: # Premium
                      fvg_list.append({'top': gap_top, 'bottom': gap_bottom, 'entry': gap_bottom, 'type': 'bearish'})

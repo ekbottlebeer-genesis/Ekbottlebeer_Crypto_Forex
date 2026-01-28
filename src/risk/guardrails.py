@@ -58,10 +58,15 @@ class RiskGuardrails:
             # Better approach: Use max_spread_pips passed from main or just hardcode strict rule.
             # STRICT FOREX RULE: 2.5 PIPS max (Safety buffer)
             
-            if "JPY" in symbol:
-                threshold = 0.025 # 2.5 pips
+            # Indices Check (NAS100, US30, SPX500, etc.)
+            # Common symbols: NAS100, US30, US500, GER30, UK100
+            if any(s in symbol for s in ["NAS", "US30", "SPX", "GER", "UK100", "NDX", "WS30"]):
+                threshold = 10.0 # 10 Points (Safe buffer for NAS100 which handles 1.5-3.0 usually)
+            
+            elif "JPY" in symbol:
+                threshold = 0.025 # 2.5 pips (0.01 = 1 pip)
             elif "XAU" in symbol: # Gold
-                threshold = 0.50 # 50 cents on Gold
+                threshold = 1.00 # $1.00 on Gold (Relaxed from 0.50)
             else:
                 threshold = 0.00025 # 2.5 pips
                 

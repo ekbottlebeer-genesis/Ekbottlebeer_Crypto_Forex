@@ -47,7 +47,17 @@ Check `src/risk/position_sizer.py` and `main.py` parameters.
 
 ---
 
-## 3. Operational Checklist
+## 3. Spread Verification
+Since v1.1, the bot handles Indices (NAS100) and Gold (XAUUSD) spreads intelligently.
+-   **Indices**: Accepted if spread < 10 Points.
+-   **Gold**: Accepted if spread < $1.00.
+-   **Forex**: Accepted if spread < 2.5 Pips.
+
+Verify this by checking the logs on startup (`Are you Scanning?`). If NAS100 shows "Spread High", check your broker's point settings.
+
+---
+
+## 4. Operational Checklist
 
 -   [ ] **VPS/Server**: Ensure the bot is running on a stable VPS (e.g., AWS EC2, Contabo) in the same region as the broker servers for low latency.
 -   [ ] **Watchdog**: Ensure `Run Ekbottlebeer Scalper (watchdog).bat` is running to auto-restart the bot if it crashes.
