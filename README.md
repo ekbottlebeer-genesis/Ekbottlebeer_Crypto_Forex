@@ -34,11 +34,11 @@ The bot is designed as a **Money Printing Machine**, utilizing a modular "organi
 
 1.  **HTF Sweep (1 Hour)**
     -   Price must wick a previous High/Low (20-candle lookback).
-    -   **Rejection**: Wick must be **>= 20%** of total candle.
+    -   **Rejection**: Wick must be **>= 10%** of total candle.
     -   **Close**: Body must close **opposite** to the sweep.
 
 2.  **LTF Logic (5 Minute)**
-    -   **MSS**: Must break the recent swing point within **4 Hours** of the sweep.
+    -   **MSS**: Must break the recent swing point within **8 Hours** of the sweep.
     -   **Structure**: Break of Swing Low (for Short) or Swing High (for Long).
 
 3.  **Entry Trigger**

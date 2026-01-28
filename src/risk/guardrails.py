@@ -66,9 +66,9 @@ class RiskGuardrails:
             elif "JPY" in symbol:
                 threshold = 0.025 # 2.5 pips (0.01 = 1 pip)
             elif "XAU" in symbol: # Gold
-                threshold = 1.00 # $1.00 on Gold (Relaxed from 0.50)
+                threshold = 2.00 # $2.00 on Gold (Relaxed from 1.00)
             else:
-                threshold = 0.00025 # 2.5 pips
+                threshold = 0.00030 # 3.0 pips
                 
         else:
             # CRYPTO LOGIC

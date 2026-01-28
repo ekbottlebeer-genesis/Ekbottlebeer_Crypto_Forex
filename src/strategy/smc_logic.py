@@ -57,82 +57,110 @@ class SMCLogic:
         period_high = df_base['high'].max()
         period_low = df_base['low'].min()
         
+        # DEBUG PRINT START
+        # print(f"DEBUG: Period High: {period_high}, Period Low: {period_low}")
+
         # Check last 3 candles for a sweep
         for i in range(1, 4):
             candle = htf_candles.iloc[-i]
             
             # 1. Body Close Rule & Basic Sweep Check
             # BUY SIDE SWEEP (High crosses PDH, Close < PDH)
-            if candle['high'] > period_high and candle['close'] < period_high:
+            if candle['high'] > period_high: 
+                # Check Reclaim immediately for Debugging
+                is_reclaim = candle['close'] < period_high
                 
-                # 2. Wick Proportion Filter (>= 30% of total length)
+                # 2. Wick Proportion Filter (>= 10% of total length)
                 total_len = candle['high'] - candle['low']
                 wick_len = candle['high'] - max(candle['open'], candle['close'])
-                if total_len > 0 and (wick_len / total_len) >= 0.2:
-                    
-                    # 3. Time-to-Reclaim Rule
-                    # From the sweep candle to current, has any closed back inside?
-                    # If i=1 (current), it already reclaimed (Close < High and Close < level).
-                    # If i=2, check -1. If i=3, check -2, -1. 
-                    # Actually, if we are at i=1, the reclaim just happened.
-                    
-                    reclaimed = False
-                    # Check candles from sweep index to end
-                    for j in range(-i, 0):
-                        if htf_candles.iloc[j]['close'] < period_high:
-                            reclaimed = True
-                            break
-                    
-                    if reclaimed:
-                        # 4. Counter-Structure Break Check
-                        # Ensure no candle between sweep and current has broken the 'Extreme'
-                        extreme_broken = False
-                        if i > 1:
-                            for k in range(-i+1, 0):
-                                if htf_candles.iloc[k]['high'] > candle['high']:
-                                    extreme_broken = True
-                                    break
+                ratio = wick_len / total_len if total_len > 0 else 0
+                
+                if not is_reclaim:
+                    # Log Breakout
+                    # print(f"   [DEBUG] Candle -{i} Breakout High (Not Reclaimed). Close {candle['close']} > {period_high}")
+                    pass
+                
+                if is_reclaim:
+                    if total_len > 0 and ratio >= 0.1:
                         
-                        if not extreme_broken:
-                            return {
-                                'swept': True, 
-                                'side': 'buy_side', 
-                                'level': period_high, 
-                                'extreme': candle['high'],
-                                'sweep_candle_time': candle['time'],
-                                'desc': "HTF High Sweep (Refined)"
-                            }
+                        # 3. Time-to-Reclaim Rule
+                        reclaimed = False
+                        # Check candles from sweep index to end
+                        for j in range(-i, 0):
+                            if htf_candles.iloc[j]['close'] < period_high:
+                                reclaimed = True
+                                break
+                        
+                        if reclaimed:
+                            # 4. Counter-Structure Break Check
+                            # Ensure no candle between sweep and current has broken the 'Extreme'
+                            extreme_broken = False
+                            if i > 1:
+                                for k in range(-i+1, 0):
+                                    if htf_candles.iloc[k]['high'] > candle['high']:
+                                        extreme_broken = True
+                                        break
+                            
+                            if not extreme_broken:
+                                return {
+                                    'swept': True, 
+                                    'side': 'buy_side', 
+                                    'level': period_high, 
+                                    'extreme': candle['high'],
+                                    'sweep_candle_time': candle['time'],
+                                    'desc': "HTF High Sweep (Refined)"
+                                }
+                            else:
+                                print(f"   [DEBUG] Sweep Rej: Extreme Broken (-{i})")
+                        else:
+                            print(f"   [DEBUG] Sweep Rej: Not Reclaimed (-{i})")
+                    else:
+                        print(f"   [DEBUG] Sweep Rej: Wick Too Small {ratio:.2f} < 0.1 (-{i})")
 
             # SELL SIDE SWEEP (Low crosses PDL, Close > PDL)
-            if candle['low'] < period_low and candle['close'] > period_low:
+            if candle['low'] < period_low:
+                is_reclaim = candle['close'] > period_low
+                
                 total_len = candle['high'] - candle['low']
                 wick_len = min(candle['open'], candle['close']) - candle['low']
+                ratio = wick_len / total_len if total_len > 0 else 0
                 
-                if total_len > 0 and (wick_len / total_len) >= 0.2:
-                    reclaimed = False
-                    for j in range(-i, 0):
-                        if htf_candles.iloc[j]['close'] > period_low:
-                            reclaimed = True
-                            break
-                    
-                    if reclaimed:
-                        # 4. Counter-Structure Break Check
-                        extreme_broken = False
-                        if i > 1:
-                            for k in range(-i+1, 0):
-                                if htf_candles.iloc[k]['low'] < candle['low']:
-                                    extreme_broken = True
-                                    break
+                if not is_reclaim:
+                   # print(f"   [DEBUG] Candle -{i} Breakout Low (Not Reclaimed). Close {candle['close']} < {period_low}")
+                   pass
+
+                if is_reclaim:
+                    if total_len > 0 and ratio >= 0.1:
+                        reclaimed = False
+                        for j in range(-i, 0):
+                            if htf_candles.iloc[j]['close'] > period_low:
+                                reclaimed = True
+                                break
                         
-                        if not extreme_broken:
-                            return {
-                                'swept': True, 
-                                'side': 'sell_side', 
-                                'level': period_low, 
-                                'extreme': candle['low'],
-                                'sweep_candle_time': candle['time'],
-                                'desc': "HTF Low Sweep (Refined)"
-                            }
+                        if reclaimed:
+                            # 4. Counter-Structure Break Check
+                            extreme_broken = False
+                            if i > 1:
+                                for k in range(-i+1, 0):
+                                    if htf_candles.iloc[k]['low'] < candle['low']:
+                                        extreme_broken = True
+                                        break
+                            
+                            if not extreme_broken:
+                                return {
+                                    'swept': True, 
+                                    'side': 'sell_side', 
+                                    'level': period_low, 
+                                    'extreme': candle['low'],
+                                    'sweep_candle_time': candle['time'],
+                                    'desc': "HTF Low Sweep (Refined)"
+                                }
+                            else:
+                                print(f"   [DEBUG] Sweep Rej: Extreme Broken (-{i})")
+                        else:
+                             print(f"   [DEBUG] Sweep Rej: Not Reclaimed (-{i})")
+                    else:
+                        print(f"   [DEBUG] Sweep Rej: Wick Too Small {ratio:.2f} < 0.1 (-{i})")
              
         return {'swept': False, 'htf_high': period_high, 'htf_low': period_low}
 
@@ -143,7 +171,7 @@ class SMCLogic:
         # STRICT RULE: MSS must be WITHIN 90 mins (User removed 30m min limit)
         # if time_diff < 0.5: return ... (Removed)
         
-        if time_diff > 4.0:
+        if time_diff > 8.0:
             return {'mss': False, 'reason': 'Expired (>4h)'}
 
         ltf_candles = self.find_swings(ltf_candles)
@@ -212,8 +240,6 @@ class SMCLogic:
                 gap_top = candle_a['low']
                 gap_bottom = candle_c['high']
                 entry_price = gap_bottom 
-                
-
                 
                 if gap_bottom > eq_level: # Premium
                      fvg_list.append({'top': gap_top, 'bottom': gap_bottom, 'entry': gap_bottom, 'type': 'bearish'})

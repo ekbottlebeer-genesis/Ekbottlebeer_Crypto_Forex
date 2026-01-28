@@ -13,25 +13,19 @@ class StateManager:
 
     def load_state(self):
         """Loads state from JSON file or initializes default."""
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, "r") as f:
-                    return json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to load state: {e}")
         
-        # Default State
+        # Default State Definition
         default_state = {
             "system_status": "active",
             "crypto_status": "active",
             "forex_status": "active",
             "last_heartbeat": None,
             "session_pnl": 0.0,
-            "last_pnl_date": datetime.now().strftime("%Y-%m-%d"), # Track date
+            "last_pnl_date": datetime.now().strftime("%Y-%m-%d"), 
             "current_session": "waiting",
             "active_sweeps": {}, 
             "active_trades": [], 
-            "pending_setups": [], # New: For Reaction Confirmation Phase
+            "pending_setups": [], 
             "last_scan_data": {}, 
             "watchlists": {
                 "ASIA": ["USDJPY", "AUDUSD"],
@@ -40,15 +34,19 @@ class StateManager:
             },
             "trade_history": [] 
         }
-        
-        # Check reset logic on load
-        current_date = datetime.now().strftime("%Y-%m-%d")
+
         if os.path.exists(self.filepath):
             try:
                 with open(self.filepath, "r") as f:
                     state = json.load(f)
                     
+                    # MERGE DEFAULTS: Ensure all keys exist
+                    for key, value in default_state.items():
+                        if key not in state:
+                            state[key] = value
+                    
                     # DATE CHECK: Reset PnL if new day
+                    current_date = datetime.now().strftime("%Y-%m-%d")
                     saved_date = state.get('last_pnl_date', "1970-01-01")
                     if saved_date != current_date:
                         logger.info(f"🔄 NEW DAY DETECTED: Resetting Session PnL (Was: {state.get('session_pnl', 0)})")
@@ -62,7 +60,7 @@ class StateManager:
                     return state
             except Exception as e:
                 logger.error(f"Failed to load state: {e}")
-                
+        
         return default_state
 
     def save_state(self):
