@@ -215,33 +215,91 @@ class SMCLogic:
                  
         return {'mss': False}
 
-    def find_fvg(self, ltf_candles: pd.DataFrame, direction, leg_high, leg_low):
+    def find_fvg(self, ltf_candles: pd.DataFrame, direction, leg_high, leg_low, lookback=50):
+        """
+        Scans for UNMITIGATED Fair Value Gaps (FVGs) within the last `lookback` candles.
+        Returns a list of valid FVGs sorted by recency (most recent first).
+        """
         eq_level = (leg_high + leg_low) / 2
         fvg_list = []
         
-        i = len(ltf_candles) - 1
-        candle_c = ltf_candles.iloc[i] 
-        candle_b = ltf_candles.iloc[i-1]
-        candle_a = ltf_candles.iloc[i-2]
+        # Ensure enough data
+        if len(ltf_candles) < 3: return []
         
-        if direction == 'bullish': # Long
-            if candle_a['high'] < candle_c['low']:
-                gap_top = candle_c['low']
-                gap_bottom = candle_a['high']
-                entry_price = gap_top
-                
-                # Strict: gap_top < eq_level
-                
-                if gap_top < eq_level: # Discount
-                    fvg_list.append({'top': gap_top, 'bottom': gap_bottom, 'entry': gap_top, 'type': 'bullish'})
+        # Iterate backwards from the most recent completed candle
+        # i goes from (len-1) down to (len-1 - lookback)
+        start_idx = len(ltf_candles) - 1
+        end_idx = max(2, start_idx - lookback)
+        
+        for i in range(start_idx, end_idx - 1, -1):
+            eval_idx = i
+            
+            # Candle C (Current in loop), B (Middle), A (First)
+            # FVG is formed between A and C
+            candle_c = ltf_candles.iloc[eval_idx] 
+            # candle_b = ltf_candles.iloc[eval_idx-1]
+            candle_a = ltf_candles.iloc[eval_idx-2]
+            
+            fvg_found = None
+            
+            if direction == 'bullish': # Long Setup
+                # Gap between Candle A High and Candle C Low
+                if candle_a['high'] < candle_c['low']:
+                    gap_top = candle_c['low']
+                    gap_bottom = candle_a['high']
                     
-        elif direction == 'bearish': # Short
-            if candle_a['low'] > candle_c['high']:
-                gap_top = candle_a['low']
-                gap_bottom = candle_c['high']
-                entry_price = gap_bottom 
-                
-                if gap_bottom > eq_level: # Premium
-                     fvg_list.append({'top': gap_top, 'bottom': gap_bottom, 'entry': gap_bottom, 'type': 'bearish'})
+                    # Discount Check (Optional/Strict)
+                    if gap_top < eq_level: 
+                         fvg_found = {
+                             'top': gap_top, 
+                             'bottom': gap_bottom, 
+                             'entry': gap_top, 
+                             'type': 'bullish',
+                             'index': eval_idx
+                         }
 
+            elif direction == 'bearish': # Short Setup
+                # Gap between Candle A Low and Candle C High
+                if candle_a['low'] > candle_c['high']:
+                    gap_top = candle_a['low']
+                    gap_bottom = candle_c['high']
+                    
+                    # Premium Check
+                    if gap_bottom > eq_level: 
+                         fvg_found = {
+                             'top': gap_top, 
+                             'bottom': gap_bottom, 
+                             'entry': gap_bottom, 
+                             'type': 'bearish',
+                             'index': eval_idx
+                         }
+            
+            if fvg_found:
+                # MITIGATION CHECK
+                # We need to check if any candle AFTER this FVG (index > eval_idx) has filled the gap.
+                is_mitigated = False
+                
+                # Check all candles from eval_idx + 1 to NOW
+                # If any candle's wick enters the gap zone, it's mitigated.
+                for j in range(eval_idx + 1, len(ltf_candles)):
+                    future_candle = ltf_candles.iloc[j]
+                    
+                    if direction == 'bullish':
+                        # Valid Bullish FVG Zone: [gap_bottom, gap_top]
+                        # Mitigated if Future Low <= gap_top (Price came back down into it)
+                        if future_candle['low'] <= fvg_found['top']:
+                            is_mitigated = True
+                            break
+                            
+                    elif direction == 'bearish':
+                        # Valid Bearish FVG Zone: [gap_bottom, gap_top]
+                        # Mitigated if Future High >= gap_bottom (Price came back up into it)
+                        if future_candle['high'] >= fvg_found['bottom']:
+                            is_mitigated = True
+                            break
+                
+                if not is_mitigated:
+                    # Add to list if clean
+                    fvg_list.append(fvg_found)
+                    
         return fvg_list

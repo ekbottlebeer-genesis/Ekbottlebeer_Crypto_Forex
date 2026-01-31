@@ -27,6 +27,15 @@ def process_telegram_updates(bot, last_id, context):
             for update in updates:
                 last_id = update['update_id']
                 if 'message' in update and 'text' in update['message']:
+                    # --- SECURITY: Global Filter ---
+                    # Ignore any message not from the OWNER (TELEGRAM_CHAT_ID)
+                    sender_id = str(update['message']['chat']['id'])
+                    owner_id = str(bot.chat_id) if bot.chat_id else None
+                    
+                    if owner_id and sender_id != owner_id:
+                        logger.warning(f"⛔️ UNAUTHORIZED ACCESS BLOCKED: ID {sender_id} tried to run command.")
+                        continue # Skip processing
+                    
                     text = update['message']['text']
                     parts = text.split(' ', 1)
                     command = parts[0]
